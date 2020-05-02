@@ -1,0 +1,47 @@
+-- counter_1
+
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+USE ieee.numeric_std.all;
+
+ENTITY counter_1 IS
+		PORT ( resetn, enable, load : IN STD_LOGIC;
+				 clock :IN STD_LOGIC;
+				 data_in : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
+				 count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0));
+END counter_1;
+
+ARCHITECTURE Structure OF counter_1 IS
+
+	SIGNAL count_conv, data_in_conv : UNSIGNED (9 DOWNTO 0);
+	
+	BEGIN 
+
+  data_in_conv <= UNSIGNED (data_in);
+	PROCESS ( clock )
+			
+			BEGIN
+			
+				IF (clock'EVENT AND clock = '1') THEN
+				
+						IF( resetn = '0' ) THEN
+							count_conv <= ( OTHERS => '0');
+						END IF;
+						IF( resetn = '1' ) THEN
+						  IF (load = '1') THEN
+							 count_conv <= data_in_conv;
+						  ELSIF ( enable = '1') THEN
+								IF ( count_conv = 1023 ) THEN
+									count_conv <= ( OTHERS => '0');
+								ELSE 
+									count_conv <= count_conv + 1;
+								END IF;
+							END IF;
+						END IF;
+				END IF;
+	END PROCESS;
+	
+	count <= std_logic_vector (count_conv);
+	
+END Structure;
+								
