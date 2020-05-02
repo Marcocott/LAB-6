@@ -1,0 +1,78 @@
+library IEEE;
+use IEEE.std_logic_1164.all;
+use IEEE.numeric_std.all;
+use std.textio.all;
+
+ENTITY tbRAM1024x8 IS
+END tbRAM1024x8;
+
+ARCHITECTURE Structure OF tbRAM1024x8 IS 
+	COMPONENT RAM1024x8 IS
+		PORT (Address: in STD_LOGIC_VECTOR(9 downto 0);
+				Data_in: in SIGNED(7 downto 0);
+				CS, RD_WRn, Clk: in std_logic;
+				Data_out: out SIGNED(7 downto 0)); 
+	END COMPONENT;
+	
+	FILE numeri_casuali : text;
+	
+	SIGNAL count : UNSIGNED (9 DOWNTO 0);
+	SIGNAL Address_dut: STD_LOGIC_VECTOR(9 downto 0);
+	SIGNAL Data_in_dut, Data_out_dut: SIGNED(7 downto 0);
+	SIGNAL CS_dut, RD_WRn_dut, Clk_dut: std_logic;
+	--SIGNAL tmp : STD_LOGIC_VECTOR(7 downto 0);
+	
+	BEGIN 
+	
+	
+	count <= (OTHERS => '0');
+	
+	clock:
+	PROCESS 
+		BEGIN
+		Clk_dut <= '0';
+		WAIT FOR 10 ns;
+		Clk_dut <= '1';
+		WAIT FOR 10 ns;
+		count <= count + 1;
+	END PROCESS;
+	
+	Address_dut <= std_logic_vector ( count );
+	
+	readfile :
+	PROCESS 
+	
+	variable fstatus : file_open_status;
+	variable vectorline :line;
+	variable tmp : integer ;
+	
+	BEGIN
+	
+	file_open(fstatus, numeri_casuali, "Numeri casuali.txt", read_mode);
+	
+	while not endfile (numeri_casuali) loop
+		readline(numeri_casuali, vectorline); -- file format is 1011011
+		--read(vectorline, datavar);
+		--read((vectorline, A); -- A, B, and C are two bit vectors
+		--read((vectorline, B); -- of type std_logic
+		--read((vectorline, C);
+		read( vectorline, tmp);
+		--signal assignments
+		--Indata <= to_stdlogic(datavar);
+		--A_in <= unsigned(to_stdlogicvector(A)); -- A_in, B_in and C_in are of
+		--B_in <= unsigned(to_stdlogicvector(B)); -- unsigned vectors
+		--C_in <= unsigned(to_stdlogicvector(C));
+		Data_in_dut <= to_signed(tmp, 8);
+		wait for 20 ns;
+	end loop;
+	file_close(numeri_casuali);
+	END PROCESS;
+	
+	CS_dut <= '1';
+	RD_WRn_dut <= '0';
+	
+	
+	
+	ram : RAM1024x8 PORT MAP (Address => Address_dut, Data_in => Data_in_dut, CS => CS_dut, RD_WRn => RD_WRn_dut, Clk => Clk_dut, Data_out => Data_out_dut );
+	
+END Structure;
