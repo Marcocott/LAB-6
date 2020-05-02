@@ -1,0 +1,40 @@
+-- tbcounter_1
+
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+
+ENTITY tbcounter_1 IS		
+END tbcounter_1;
+
+ARCHITECTURE Structural OF tbcounter_1 IS
+	-- Richiamo del component utilizzato
+	COMPONENT counter_1 IS
+		PORT ( resetn, enable, load : IN STD_LOGIC;
+				 clock :IN STD_LOGIC;
+				 data_in : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
+				 count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0));
+	END COMPONENT;
+	-- Segnali di test
+	SIGNAL resetn_dut, enable_dut, load_dut, clock_dut : STD_LOGIC;
+	SIGNAL data_in_dut : STD_LOGIC_VECTOR(9 DOWNTO 0);
+	SIGNAL count_dut : STD_LOGIC_VECTOR(9 DOWNTO 0) ;				 
+	
+	BEGIN 
+	-- --Valori dei sgnali test, scelti appositamente per verificare le funzioni del circuito
+	resetn_dut <= '0', '1' after 15 ns;
+	enable_dut <= '1';
+	load_dut <= '0', '1' after 150 ns;
+	data_in_dut <= "0101010101";
+	PROCESS 
+		BEGIN 
+			-- Generazione del clock 
+			clock_dut <= '0';
+			WAIT FOR 10 ns;
+			clock_dut <= '1';
+			WAIT FOR 10 ns;
+	END PROCESS;
+	
+	dut : counter_1 PORT MAP ( resetn => resetn_dut, enable => enable_dut, load => load_dut, clock => clock_dut, 
+										data_in => data_in_dut, count => count_dut );
+	
+END Structural;
