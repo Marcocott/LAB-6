@@ -3,9 +3,9 @@ USE ieee.std_logic_1164.all;
 
 ENTITY regn_8bit IS
 	GENERIC ( N : integer:=8);
-	PORT (R : IN STD_LOGIC_VECTOR(N-1 DOWNTO 0);
+	PORT (R : IN SIGNED(N-1 DOWNTO 0);
 			Clock, Resetn, Enable : IN STD_LOGIC;
-			Q : OUT STD_LOGIC_VECTOR(N-1 DOWNTO 0));
+			Q : OUT SIGNED(N-1 DOWNTO 0));
 	END regn_8bit;
 	
 ARCHITECTURE Behavior OF regn_8bit IS
