@@ -71,6 +71,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	SIGNAL Sum, Out_R_20bit : SIGNED ( 19 DOWNTO 0 );
 	SIGNAL Ek_x2, Ek_x4, Ek_/4, Ek-1_/2: SIGNED ( 9 DOWNTO 0 );
 	SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
+	
 	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR0, PROP_CONTR1, PROP_CONTR2, O, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
 	SIGNAL PRESENT_STATE, NEXT_STATE : State_type;
 	
@@ -108,3 +109,57 @@ ARCHITECTURE Structure OF Controller_PID IS
 	Mux_Signed_Sat : Mux_2to1_8bit PORT MAP ( x => "01111111", y =>"10000000", s => XOR_2bit, m => Out_Mux_Signed_Sat );
 	
 	MEM_B : RAM1024x8 PORT MAP ( Address => Out_C1, Data_in => Out_Mux_Saturation, CS => CS_MEM_B , RD_WRn => RD_WRn_MEM_B, Clk => Clk, Data_out => Out_MEM_B );
+	
+	
+	
+	
+			FSM_transitions: PROCESS ( Resetn, Clock )
+			
+				BEGIN
+					if resetN = '0' then 
+					 PRESENT_STATE <= idle;
+					else
+						if clock'event and clock = '1' then -- flip - flop transition when rising edge occurs
+							PRESENT_STATE <= NEXT_STATE;
+						end if;
+					end if;
+				
+			END PROCESS ;
+			
+			next_state_evaluation: process(PRESENT_STATE, data_in)
+				BEGIN
+					
+					case PRESENT_STATE is
+					  when IDLE => if Start = '0' then
+											next_state <= IDLE;
+										else
+											next_state <= WR_MEM_A;
+										end if;
+					
+					  when WR_MEM_A => if  Out_C1 = 1023 then
+											next_state <= PROP_CONTR_0;
+										else
+											next_state <= WR_MEM_A;
+										end if;
+										
+					  when  PROP_CONTR_0 => next_state <= PROP_CONTR_1;
+					  
+					  when  PROP_CONTR_1 => next_state <= PROP_CONTR_2;
+					  
+					  when  PROP_CONTR_2 => next_state <= INT_CONTR;
+					  
+					  when  INT_CONTR => if  Out_C2 = 0 then
+														next_state <= DIFF_CONTR;
+													else
+														next_state <= INT_CONTR;
+													end if;
+													
+					  when  DIFF_CONTR => next_state <= WR_MEM_B ;
+					  
+					  when  WR_MEM_B=> if   Out_C1 = 1023 then
+														next_state <= DONE;
+													else
+														next_state <= PROP_CONTR_0;
+													end if;
+					
+				END PROCESS ;
