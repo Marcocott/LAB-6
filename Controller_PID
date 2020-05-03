@@ -1,0 +1,110 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+
+ENTITY Controller_PID IS
+	PORT (Clk, RSTn, Start : IN STD_LOGIC;
+			Data_in : IN SIGNED ( 7 DOWNTO 0);
+			Done : OUT STD_LOGIC );
+END Controller_PID;
+
+ARCHITECTURE Structure OF Controller_PID IS
+	COMPONENT RAM1024x8 IS
+		PORT ( Address: in std_logic_vector(9 downto 0);
+				 Data_in: in SIGNED(7 downto 0);
+				 CS, RD_WRn, Clk: in std_logic;
+				 Data_out: out SIGNED(7 downto 0));
+	END COMPONENT;
+	
+	COMPONENT mux_4to1_10bit IS
+		PORT ( u , v , x , y : IN STD_LOGIC_VECTOR (9 DOWNTO 0);
+				 s : IN STD_LOGIC_VECTOR (1 DOWNTO 0);
+				 m : OUT STD_LOGIC_VECTOR (9 DOWNTO 0) );
+	END COMPONENT;
+	
+	COMPONENT counter IS
+		PORT ( resetn, enable, load, U_Dn : IN STD_LOGIC;
+				 clock :IN STD_LOGIC;
+				 data_in : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
+				 count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0));
+	END COMPONENT;
+	
+	COMPONENT sommatore IS
+		PORT ( X, Y: IN SIGNED (19 DOWNTO 0);
+				 S: OUT SIGNED (19 DOWNTO 0);
+				 SUB_ADDn : IN STD_LOGIC);
+	END sommatore;
+	
+	COMPONENT regn_20bit IS
+		GENERIC ( N : integer:=20);
+		
+		PORT (R : IN STD_LOGIC_VECTOR(N-1 DOWNTO 0);
+				Clock, Resetn, Enable : IN STD_LOGIC;
+				Q : OUT STD_LOGIC_VECTOR(N-1 DOWNTO 0));
+	END COMPONENT;
+	
+	COMPONENT regn_8bit IS
+		GENERIC ( N : integer:=8);
+		
+		PORT (R : IN STD_LOGIC_VECTOR(N-1 DOWNTO 0);
+				Clock, Resetn, Enable : IN STD_LOGIC;
+				Q : OUT STD_LOGIC_VECTOR(N-1 DOWNTO 0));
+	END COMPONENT;
+	
+	
+	COMPONENT Mux2to1_8bit IS
+		PORT (x, y: IN STD_LOGIC_VECTOR( 7 DOWNTO 0 );
+					s: IN STD_LOGIC;
+					m: OUT STD_LOGIC_VECTOR( 7 DOWNTO 0 ));
+	END COMPONENT;
+	
+	COMPONENT Mux2to1_10bit IS
+		PORT (x, y: IN STD_LOGIC_VECTOR( 9 DOWNTO 0 );
+					s: IN STD_LOGIC;
+					m: OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 ));
+	END COMPONENT;
+	
+	SIGNAL EN_C1, EN_C2, CS_MEM_A, CS_MEM_B, EN_R_20bit, EN_R_8bit, RD_WRn_MEM_A, RD_WRn_MEM_B, L_C2, RSTn_R_20bit, SUB_ADDn
+			 MUX_Sel_Counters, XOR_13bit , XOR_2bit: STD_LOGIC;
+	SIGNAL MUX_Sel_adder : STD_LOGIC_VEECTOR ( 1 DOWNTO 0 );
+	SIGNAL Out_C1, Out_C2, Add_MEM_A : STD_LOGIC_VECTOR ( 9 DOWNTO 0 );
+	SIGNAL Out_MEM_A, Out_MEM_B, Out_R_8bit, Out_Mux_adder, Out_Mux_Saturation, Out_Mux_Signed_Sat : SIGNED ( 7 DOWNTO 0 );
+	SIGNAL Sum, Out_R_20bit : SIGNED ( 19 DOWNTO 0 );
+	SIGNAL Ek_x2, Ek_x4, Ek_/4, Ek-1_/2: SIGNED ( 9 DOWNTO 0 );
+	SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
+	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR0, PROP_CONTR1, PROP_CONTR2, O, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
+	SIGNAL PRESENT_STATE, NEXT_STATE : State_type;
+	
+	
+	BEGIN
+	
+	Counter1 : counter PORT MAP ( Resetn => RSTn, Enable => EN_C1, Load => '0', U_Dn => '1', Clock => Clk, Data_in => "0000000000", count => Out_C1 );
+	Counter2 : counter PORT MAP ( Resetn => RSTn, Enable => EN_C2, Load => L_C2, U_Dn => '0', Clock => Clk, Data_in => Out_C1, count => Out_C2 );
+	
+	Mux_Counters : Mux_2to1_10bit PORT MAP ( x => Out_C1, y => Out_C2, s => MUX_Sel_Counters, m => Add_MEM_A );
+	 
+	MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
+	
+	R_8bit :regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => '1', Enable => EN_R_8bit, Q => Out_R_8bit );
+	
+	Ek_x2 <= (Out_MEM_A(7) & Out_MEM_A & '0' );
+	Ek_x4 <= ( Out_MEM_A & "00" );
+	Ek_/4 <= (Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7 DOWNTO 2) );
+	Ek-1_/2 <= ( Out_R_8bit(7) & Out_R_8bit(7) & Out_R_8bit(7)& Out_R_8bit(7 DOWNTO 1) );
+	
+	Mux_adder : Mux_4to1_10bit PORT MAP ( u => Ek_x2, v => Ek_x4, x => Ek_/4, y => Ek-1_/2, s => MUX_Sel_adder , m => Out_Mux_adder );
+	
+	Out_Mux_adder_20bit <= ( (OTHERS => Out_Mux_adder(7)) & Out_Mux_adder );
+	
+	add : sommatore PORT MAP ( X => Out_R_20bit, Y => Out_Mux_adder_20bit, S => Sum, SUB_ADDn => SUB_ADDn );
+	
+	R_20bit :regn_20bit PORT MAP ( R => Sum, Clock => Clk, Resetn => RSTn_R_20bit, Enable => EN_R_20bit, Q => Out_R_20bit );
+	
+	Mux_Saturation : Mux_2to1_8bit PORT MAP ( x => Out_R_20bit( 7DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
+	
+	XOR_13bit <= (Out_R_20bit(19) XOR Out_R_20bit(18) XOR Out_R_20bit(17) XOR Out_R_20bit(16) XOR Out_R_20bit(15) XOR Out_R_20bit(14) XOR Out_R_20bit(13) XOR Out_R_20bit(12) XOR Out_R_20bit(11) XOR Out_R_20bit(10) XOR Out_R_20bit(9) XOR Out_R_20bit(8) XOR Out_R_20bit (7));
+	
+	XOR_2bit <= XOR_13bit XOR  Out_R_20bit(8) ;
+	
+	Mux_Signed_Sat : Mux_2to1_8bit PORT MAP ( x => "01111111", y =>"10000000", s => XOR_2bit, m => Out_Mux_Signed_Sat );
+	
+	MEM_B : RAM1024x8 PORT MAP ( Address => Out_C1, Data_in => Out_Mux_Saturation, CS => CS_MEM_B , RD_WRn => RD_WRn_MEM_B, Clk => Clk, Data_out => Out_MEM_B );
