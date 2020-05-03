@@ -63,13 +63,19 @@ ARCHITECTURE Structure OF Controller_PID IS
 					m: OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 ));
 	END COMPONENT;
 	
-	SIGNAL EN_C1, EN_C2, CS_MEM_A, CS_MEM_B, EN_R_20bit, EN_R_8bit, RD_WRn_MEM_A, RD_WRn_MEM_B, L_C2, RSTn_R_20bit, SUB_ADDn
+	SIGNAL EN_C1, EN_C2, CS_MEM_A, CS_MEM_B,  EN_R_8bit, RD_WRn_MEM_A, RD_WRn_MEM_B, L_C2, RSTn_R_20bit, SUB_ADDn   --EN_R_20bit,
 			 MUX_Sel_Counters, XOR_13bit , XOR_2bit: STD_LOGIC;
+			 
 	SIGNAL MUX_Sel_adder : STD_LOGIC_VEECTOR ( 1 DOWNTO 0 );
+	
 	SIGNAL Out_C1, Out_C2, Add_MEM_A : STD_LOGIC_VECTOR ( 9 DOWNTO 0 );
+	
 	SIGNAL Out_MEM_A, Out_MEM_B, Out_R_8bit, Out_Mux_adder, Out_Mux_Saturation, Out_Mux_Signed_Sat : SIGNED ( 7 DOWNTO 0 );
+	
 	SIGNAL Sum, Out_R_20bit : SIGNED ( 19 DOWNTO 0 );
+	
 	SIGNAL Ek_x2, Ek_x4, Ek_/4, Ek-1_/2: SIGNED ( 9 DOWNTO 0 );
+	
 	SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
 	
 	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR0, PROP_CONTR1, PROP_CONTR2, O, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
@@ -85,7 +91,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	 
 	MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
 	
-	R_8bit :regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => '1', Enable => EN_R_8bit, Q => Out_R_8bit );
+	R_8bit :regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
 	
 	Ek_x2 <= (Out_MEM_A(7) & Out_MEM_A & '0' );
 	Ek_x4 <= ( Out_MEM_A & "00" );
@@ -98,7 +104,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	
 	add : sommatore PORT MAP ( X => Out_R_20bit, Y => Out_Mux_adder_20bit, S => Sum, SUB_ADDn => SUB_ADDn );
 	
-	R_20bit :regn_20bit PORT MAP ( R => Sum, Clock => Clk, Resetn => RSTn_R_20bit, Enable => EN_R_20bit, Q => Out_R_20bit );
+	R_20bit :regn_20bit PORT MAP ( R => Sum, Clock => Clk, Resetn => RSTn_R_20bit, Enable => '1', Q => Out_R_20bit );
 	
 	Mux_Saturation : Mux_2to1_8bit PORT MAP ( x => Out_R_20bit( 7DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
 	
@@ -161,5 +167,83 @@ ARCHITECTURE Structure OF Controller_PID IS
 													else
 														next_state <= PROP_CONTR_0;
 													end if;
+													
+						WHEN OTHERS => NEXT_STATE <= IDLE;
 					
 				END PROCESS ;
+				
+						
+			FSM_outputs : PROCESS ( PRESENT STATE )
+			
+						BEGIN
+						
+							SUB_ADDn <= '0';
+							RSTn_R_20bit <= '1';
+							EN_C1 <= '0';
+							EN_C2 <= '0';
+							CS_MEM_A <= '0';
+							CS_MEM_B <= '0';
+							DONE <= '0';
+							EN_R_20bit <= '0';
+							EN_R_8bit <= '0';
+							MUX_Sel_Counters <= '0';
+							
+							CASE PRESENT_STATE IS
+							
+									WHEN IDLE => 
+											EN_C1 <= '0';
+											EN_C2 <= '0';
+											CS_MEM_A <= '0';
+											CS_MEM_B <= '0';
+											DONE <= '0';
+											EN_R_20bit <= '0';
+											EN_R_8bit <= '0';
+											
+									WHEN WR_MEM_A => 
+											EN_C1 <= '1';
+											CS_MEM_A <= '1';
+											RD_WRn_MEM_A <= '0';
+											
+									WHEN PROP_CONTR_0 =>
+											L_C2 <= '1';
+											RD_WRn_MEM_A <= '1';
+											RSTn_R_20bit <= '0';
+											
+									WHEN PROP_CONTR_1 =>
+											SUB_ADDn <= '0';
+											MUX_Sel_adder <= "01"
+											EN_R_8bit <= '0';
+											
+									WHEN PROP_CONTR_2 =>
+											MUX_Sel_adder <= "10";
+											
+									WHEN INT_CONTR =>
+											MUX_Sel_Counters <= '1';
+											EN_C2 <= '1';
+											MUX_Sel_adder <= "00";
+											
+									WHEN DIFF_CONTR =>
+											MUX_Sel_adder <= "11";
+											SUB_ADDn <= '1';
+											
+									WHEN WR_MEM_B => 
+											CS_MEM_B <= '1';
+											RD_WRn_MEM_B <= '0';
+											
+									WHEN DONE =>
+											DONE <= '1';
+									
+									WHEN OTHERS => 
+											EN_C1 <= '0';
+											EN_C2 <= '0';
+											CS_MEM_A <= '0';
+											CS_MEM_B <= '0';
+											DONE <= '0';
+											EN_R_20bit <= '0';
+											EN_R_8bit <= '0';
+											
+							END CASE;
+							
+					END PROCESS;
+					
+END Structure;
