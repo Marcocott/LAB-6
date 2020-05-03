@@ -1,10 +1,12 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
+USE ieee.numeric_std.all;
 
 ENTITY Controller_PID IS
 	PORT (Clk, RSTn, Start : IN STD_LOGIC;
 			Data_in : IN SIGNED ( 7 DOWNTO 0);
-			Done : OUT STD_LOGIC );
+			Done_sign : OUT STD_LOGIC ;
+			Out_MEM_B : OUT SIGNED ( 7 DOWNTO 0 ));
 END Controller_PID;
 
 ARCHITECTURE Structure OF Controller_PID IS
@@ -16,9 +18,9 @@ ARCHITECTURE Structure OF Controller_PID IS
 	END COMPONENT;
 	
 	COMPONENT mux_4to1_10bit IS
-		PORT ( u , v , x , y : IN STD_LOGIC_VECTOR (9 DOWNTO 0);
+		PORT ( u , v , x , y : IN SIGNED (9 DOWNTO 0);
 				 s : IN STD_LOGIC_VECTOR (1 DOWNTO 0);
-				 m : OUT STD_LOGIC_VECTOR (9 DOWNTO 0) );
+				 m : OUT SIGNED (9 DOWNTO 0) );
 	END COMPONENT;
 	
 	COMPONENT counter IS
@@ -32,53 +34,53 @@ ARCHITECTURE Structure OF Controller_PID IS
 		PORT ( X, Y: IN SIGNED (19 DOWNTO 0);
 				 S: OUT SIGNED (19 DOWNTO 0);
 				 SUB_ADDn : IN STD_LOGIC);
-	END sommatore;
+	END COMPONENT;
 	
 	COMPONENT regn_20bit IS
 		GENERIC ( N : integer:=20);
 		
-		PORT (R : IN STD_LOGIC_VECTOR(N-1 DOWNTO 0);
+		PORT (R : IN SIGNED(N-1 DOWNTO 0);
 				Clock, Resetn, Enable : IN STD_LOGIC;
-				Q : OUT STD_LOGIC_VECTOR(N-1 DOWNTO 0));
+				Q : OUT SIGNED(N-1 DOWNTO 0));
 	END COMPONENT;
 	
 	COMPONENT regn_8bit IS
 		GENERIC ( N : integer:=8);
 		
-		PORT (R : IN STD_LOGIC_VECTOR(N-1 DOWNTO 0);
+		PORT (R : IN SIGNED(N-1 DOWNTO 0);
 				Clock, Resetn, Enable : IN STD_LOGIC;
-				Q : OUT STD_LOGIC_VECTOR(N-1 DOWNTO 0));
+				Q : OUT SIGNED(N-1 DOWNTO 0));
 	END COMPONENT;
 	
 	
 	COMPONENT Mux2to1_8bit IS
-		PORT (x, y: IN STD_LOGIC_VECTOR( 7 DOWNTO 0 );
+		PORT (x, y: IN SIGNED( 7 DOWNTO 0 );
 					s: IN STD_LOGIC;
-					m: OUT STD_LOGIC_VECTOR( 7 DOWNTO 0 ));
+					m: OUT SIGNED( 7 DOWNTO 0 ));
 	END COMPONENT;
 	
-	COMPONENT Mux2to1_10bit IS
+	COMPONENT Mux_2to1_10bit IS
 		PORT (x, y: IN STD_LOGIC_VECTOR( 9 DOWNTO 0 );
 					s: IN STD_LOGIC;
 					m: OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 ));
 	END COMPONENT;
 	
-	SIGNAL EN_C1, EN_C2, CS_MEM_A, CS_MEM_B,  EN_R_8bit, RD_WRn_MEM_A, RD_WRn_MEM_B, L_C2, RSTn_R_20bit, SUB_ADDn   --EN_R_20bit,
+	SIGNAL EN_C1, EN_C2, CS_MEM_A, CS_MEM_B,  EN_R_8bit, RD_WRn_MEM_A, RD_WRn_MEM_B, L_C2, RSTn_R_20bit, SUB_ADDn,   --EN_R_20bit,
 			 MUX_Sel_Counters, XOR_13bit , XOR_2bit: STD_LOGIC;
 			 
-	SIGNAL MUX_Sel_adder : STD_LOGIC_VEECTOR ( 1 DOWNTO 0 );
+	SIGNAL MUX_Sel_adder : STD_LOGIC_VECTOR ( 1 DOWNTO 0 );
 	
 	SIGNAL Out_C1, Out_C2, Add_MEM_A : STD_LOGIC_VECTOR ( 9 DOWNTO 0 );
 	
-	SIGNAL Out_MEM_A, Out_MEM_B, Out_R_8bit, Out_Mux_adder, Out_Mux_Saturation, Out_Mux_Signed_Sat : SIGNED ( 7 DOWNTO 0 );
+	SIGNAL Out_MEM_A, Out_R_8bit, Out_Mux_Saturation, Out_Mux_Signed_Sat : SIGNED ( 7 DOWNTO 0 );
 	
 	SIGNAL Sum, Out_R_20bit : SIGNED ( 19 DOWNTO 0 );
 	
-	SIGNAL Ek_x2, Ek_x4, Ek_/4, Ek-1_/2: SIGNED ( 9 DOWNTO 0 );
+	SIGNAL twoEk, fourEk, quarterEk, halfEk_1, Out_Mux_adder: SIGNED ( 9 DOWNTO 0 );
 	
 	SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
 	
-	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR0, PROP_CONTR1, PROP_CONTR2, O, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
+	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR_0, PROP_CONTR_1, PROP_CONTR_2, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
 	SIGNAL PRESENT_STATE, NEXT_STATE : State_type;
 	
 	
@@ -91,41 +93,41 @@ ARCHITECTURE Structure OF Controller_PID IS
 	 
 	MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
 	
-	R_8bit :regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
+	R_8bit : regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
 	
-	Ek_x2 <= (Out_MEM_A(7) & Out_MEM_A & '0' );
-	Ek_x4 <= ( Out_MEM_A & "00" );
-	Ek_/4 <= (Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7 DOWNTO 2) );
-	Ek-1_/2 <= ( Out_R_8bit(7) & Out_R_8bit(7) & Out_R_8bit(7)& Out_R_8bit(7 DOWNTO 1) );
+	twoEk <= (Out_MEM_A(7) & Out_MEM_A & '0' );
+	fourEk<= ( Out_MEM_A & "00" );
+	quarterEk <= (Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7 DOWNTO 2) );
+	halfEk_1 <= ( Out_R_8bit(7) & Out_R_8bit(7) & Out_R_8bit(7)& Out_R_8bit(7 DOWNTO 1) );
 	
-	Mux_adder : Mux_4to1_10bit PORT MAP ( u => Ek_x2, v => Ek_x4, x => Ek_/4, y => Ek-1_/2, s => MUX_Sel_adder , m => Out_Mux_adder );
+	Mux_adder : Mux_4to1_10bit PORT MAP ( u => twoEk, v => fourEk, x => quarterEk, y => halfEk_1, s => MUX_Sel_adder , m => Out_Mux_adder );
 	
-	Out_Mux_adder_20bit <= ( (OTHERS => Out_Mux_adder(7)) & Out_Mux_adder );
+	Out_Mux_adder_20bit <= ( Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7)& Out_Mux_adder );
 	
 	add : sommatore PORT MAP ( X => Out_R_20bit, Y => Out_Mux_adder_20bit, S => Sum, SUB_ADDn => SUB_ADDn );
 	
 	R_20bit :regn_20bit PORT MAP ( R => Sum, Clock => Clk, Resetn => RSTn_R_20bit, Enable => '1', Q => Out_R_20bit );
 	
-	Mux_Saturation : Mux_2to1_8bit PORT MAP ( x => Out_R_20bit( 7DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
+	Mux_Saturation : Mux2to1_8bit PORT MAP ( x => Out_R_20bit( 7DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
 	
 	XOR_13bit <= (Out_R_20bit(19) XOR Out_R_20bit(18) XOR Out_R_20bit(17) XOR Out_R_20bit(16) XOR Out_R_20bit(15) XOR Out_R_20bit(14) XOR Out_R_20bit(13) XOR Out_R_20bit(12) XOR Out_R_20bit(11) XOR Out_R_20bit(10) XOR Out_R_20bit(9) XOR Out_R_20bit(8) XOR Out_R_20bit (7));
 	
 	XOR_2bit <= XOR_13bit XOR  Out_R_20bit(8) ;
 	
-	Mux_Signed_Sat : Mux_2to1_8bit PORT MAP ( x => "01111111", y =>"10000000", s => XOR_2bit, m => Out_Mux_Signed_Sat );
+	Mux_Signed_Sat : Mux2to1_8bit PORT MAP ( x => "01111111", y =>"10000000", s => XOR_2bit, m => Out_Mux_Signed_Sat );
 	
 	MEM_B : RAM1024x8 PORT MAP ( Address => Out_C1, Data_in => Out_Mux_Saturation, CS => CS_MEM_B , RD_WRn => RD_WRn_MEM_B, Clk => Clk, Data_out => Out_MEM_B );
 	
 	
 	
 	
-			FSM_transitions: PROCESS ( Resetn, Clock )
+			FSM_transitions: PROCESS ( Rstn, Clk )
 			
 				BEGIN
-					if resetN = '0' then 
+					if RSTn = '0' then 
 					 PRESENT_STATE <= idle;
 					else
-						if clock'event and clock = '1' then -- flip - flop transition when rising edge occurs
+						if clk'event and clk = '1' then -- flip - flop transition when rising edge occurs
 							PRESENT_STATE <= NEXT_STATE;
 						end if;
 					end if;
@@ -142,7 +144,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 											next_state <= WR_MEM_A;
 										end if;
 					
-					  when WR_MEM_A => if  Out_C1 = 1023 then
+					  when WR_MEM_A => if  Out_C1 = "1111111111" then
 											next_state <= PROP_CONTR_0;
 										else
 											next_state <= WR_MEM_A;
@@ -154,7 +156,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 					  
 					  when  PROP_CONTR_2 => next_state <= INT_CONTR;
 					  
-					  when  INT_CONTR => if  Out_C2 = 0 then
+					  when  INT_CONTR => if  Out_C2 = "0000000000" then
 														next_state <= DIFF_CONTR;
 													else
 														next_state <= INT_CONTR;
@@ -162,29 +164,33 @@ ARCHITECTURE Structure OF Controller_PID IS
 													
 					  when  DIFF_CONTR => next_state <= WR_MEM_B ;
 					  
-					  when  WR_MEM_B=> if   Out_C1 = 1023 then
+					  when  WR_MEM_B=> if   Out_C1 = "1111111111" then
 														next_state <= DONE;
 													else
 														next_state <= PROP_CONTR_0;
 													end if;
+					  WHEN DONE => if Start = '1' then
+											next_state <= DONE;
+										else
+											next_state <= IDLE;
+										end if;
 													
-						WHEN OTHERS => NEXT_STATE <= IDLE;
+					  WHEN OTHERS => NEXT_STATE <= IDLE;
+						
+					END CASE;
 					
 				END PROCESS ;
 				
 						
-			FSM_outputs : PROCESS ( PRESENT STATE )
+			FSM_outputs : PROCESS ( PRESENT_STATE )
 			
 						BEGIN
 						
 							SUB_ADDn <= '0';
 							RSTn_R_20bit <= '1';
-							EN_C1 <= '0';
-							EN_C2 <= '0';
 							CS_MEM_A <= '0';
 							CS_MEM_B <= '0';
-							DONE <= '0';
-							EN_R_20bit <= '0';
+							Done_sign <= '0';
 							EN_R_8bit <= '0';
 							MUX_Sel_Counters <= '0';
 							
@@ -195,8 +201,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 											EN_C2 <= '0';
 											CS_MEM_A <= '0';
 											CS_MEM_B <= '0';
-											DONE <= '0';
-											EN_R_20bit <= '0';
+											Done_sign <= '0';
 											EN_R_8bit <= '0';
 											
 									WHEN WR_MEM_A => 
@@ -205,13 +210,16 @@ ARCHITECTURE Structure OF Controller_PID IS
 											RD_WRn_MEM_A <= '0';
 											
 									WHEN PROP_CONTR_0 =>
+											EN_R_8bit <= '1';
+											EN_C1 <= '0';
 											L_C2 <= '1';
 											RD_WRn_MEM_A <= '1';
 											RSTn_R_20bit <= '0';
 											
 									WHEN PROP_CONTR_1 =>
+											L_C2 <= '0';
 											SUB_ADDn <= '0';
-											MUX_Sel_adder <= "01"
+											MUX_Sel_adder <= "01";
 											EN_R_8bit <= '0';
 											
 									WHEN PROP_CONTR_2 =>
@@ -229,17 +237,17 @@ ARCHITECTURE Structure OF Controller_PID IS
 									WHEN WR_MEM_B => 
 											CS_MEM_B <= '1';
 											RD_WRn_MEM_B <= '0';
+											EN_C1 <= '1';
 											
 									WHEN DONE =>
-											DONE <= '1';
+											Done_sign <= '1';
 									
 									WHEN OTHERS => 
 											EN_C1 <= '0';
 											EN_C2 <= '0';
 											CS_MEM_A <= '0';
 											CS_MEM_B <= '0';
-											DONE <= '0';
-											EN_R_20bit <= '0';
+											Done_sign <= '0';
 											EN_R_8bit <= '0';
 											
 							END CASE;
