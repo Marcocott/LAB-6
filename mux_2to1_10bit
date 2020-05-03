@@ -11,7 +11,7 @@ END mux_2to1_10bit ;
 
 ARCHITECTURE Structure OF mux_2to1_10bit IS
 
-COMPONENT multiplexer2to1
+COMPONENT mux_2to1 IS
 PORT ( x0, y0, s : IN STD_LOGIC ;
        m0 : OUT STD_LOGIC ) ;
 END COMPONENT; 
@@ -19,7 +19,7 @@ BEGIN
 	
 	Gen_mux:
 	FOR i IN 0 TO 9 GENERATE
-	Mux : multiplexer2to1 PORT MAP (x0 => x(i) , y0 => y(i) , s => s, m0 => m(i));
+	Mux : mux_2to1 PORT MAP (x0 => x(i) , y0 => y(i) , s => s, m0 => m(i));
 	END GENERATE Gen_mux
 	
 END Structure ;
