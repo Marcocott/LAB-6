@@ -7,7 +7,7 @@ USE ieee.numeric_std.all;
 ENTITY sommatore IS
 	PORT (X, Y: IN SIGNED (19 DOWNTO 0);
 			S: OUT SIGNED (19 DOWNTO 0);
-			SUB_ADDn : STD_LOGIC);
+			SUB_ADDn :  IN STD_LOGIC);
 END sommatore;
 
 ARCHITECTURE Behavior OF sommatore IS
