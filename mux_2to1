@@ -1,0 +1,14 @@
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity mux_2to1 is
+port(x0, y0, s: in std_logic;
+           m0: out std_logic);
+end mux_2to1;
+
+architecture Behavior of mux_2to1 is
+    
+begin 
+m0 <= (NOT (s) AND x0) OR (s AND y0);
+
+end Behavior;
