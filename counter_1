@@ -1,17 +1,17 @@
--- counter_1
+-- counter
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
 
-ENTITY counter_1 IS
+ENTITY counter IS
 		PORT ( resetn, enable, load : IN STD_LOGIC;
 				 clock :IN STD_LOGIC;
 				 data_in : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
 				 count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0));
-END counter_1;
+END counter;
 
-ARCHITECTURE Structure OF counter_1 IS
+ARCHITECTURE Structure OF counter IS
 
 	SIGNAL count_conv, data_in_conv : UNSIGNED (9 DOWNTO 0);
 	
