@@ -3,9 +3,9 @@ use ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
 
 entity multiplexer2to1 is
-port(x0, y0 : in signed;
+port(x0, y0 : in std_logic;
      s : in std_logic;
-     m0: out signed);
+     m0: out std_logic);
 end multiplexer2to1;
 
 architecture Behavior of multiplexer2to1 is
