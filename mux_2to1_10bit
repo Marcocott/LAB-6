@@ -1,5 +1,6 @@
 LIBRARY ieee ;
 USE ieee.std_logic_1164.all ;
+USE ieee.numeric_std.all;
 
 ENTITY mux_2to1_10bit IS
  PORT (  
@@ -20,6 +21,6 @@ BEGIN
 	Gen_mux:
 	FOR i IN 0 TO 9 GENERATE
 	Mux : mux_2to1 PORT MAP (x0 => x(i) , y0 => y(i) , s => s, m0 => m(i));
-	END GENERATE Gen_mux
+	END GENERATE Gen_mux;
 	
 END Structure ;
