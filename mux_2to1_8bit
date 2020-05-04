@@ -12,27 +12,27 @@ END mux2to1_8bit ;
 
 ARCHITECTURE Structure OF mux2to1_8bit IS
 
-COMPONENT multiplexer2to1
-PORT ( x0, y0 : IN SIGNED ;
-       s : IN STD_LOGIC;
-       m0 : OUT SIGNED ) ;
-END COMPONENT; 
+COMPONENT mux_2to1 IS
+PORT ( x0, y0, s : IN STD_LOGIC ;
+       m0 : OUT STD_LOGIC ) ;
+END COMPONENT;
+
 BEGIN
- Mux0: multiplexer2to1 PORT MAP (x0 => x(0) , y0 => y(0) , s => s, m0 => m(0)); 
+ Mux0: mux_2to1 PORT MAP (x0 => x(0) , y0 => y(0) , s => s, m0 => m(0)); 
 
- Mux1: multiplexer2to1 PORT MAP (x0 => x(1) , y0 => y(1) , s => s, m0 => m(1) ); 
+ Mux1: mux_2to1 PORT MAP (x0 => x(1) , y0 => y(1) , s => s, m0 => m(1) ); 
 
- Mux2: multiplexer2to1 PORT MAP (x0 => x(2) , y0 => y(2) , s => s, m0 => m(2) ); 
+ Mux2: mux_2to1 PORT MAP (x0 => x(2) , y0 => y(2) , s => s, m0 => m(2) ); 
  
- Mux3: multiplexer2to1 PORT MAP (x0 => x(3) , y0 => y(3) , s => s, m0 => m(3) ); 
+ Mux3: mux_2to1 PORT MAP (x0 => x(3) , y0 => y(3) , s => s, m0 => m(3) ); 
  
- Mux4: multiplexer2to1 PORT MAP (x0 => x(4) , y0 => y(4) , s => s, m0 => m(4) ); 
+ Mux4: mux_2to1 PORT MAP (x0 => x(4) , y0 => y(4) , s => s, m0 => m(4) ); 
  
- Mux5: multiplexer2to1 PORT MAP (x0 => x(5) , y0 => y(5) , s => s, m0 => m(5)); 
+ Mux5: mux_2to1 PORT MAP (x0 => x(5) , y0 => y(5) , s => s, m0 => m(5)); 
  
- Mux6: multiplexer2to1 PORT MAP (x0 => x(6) , y0 => y(6) , s => s, m0 => m(6) ); 
+ Mux6: mux_2to1 PORT MAP (x0 => x(6) , y0 => y(6) , s => s, m0 => m(6) ); 
 
- Mux7: multiplexer2to1 PORT MAP (x0 => x(7) , y0 => y(7) , s => s, m0 => m(7) ); 
+ Mux7: mux_2to1 PORT MAP (x0 => x(7) , y0 => y(7) , s => s, m0 => m(7) ); 
   
  
 END Structure ;
