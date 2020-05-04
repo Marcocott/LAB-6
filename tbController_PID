@@ -1,0 +1,38 @@
+--tbController_PID
+
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+USE ieee.numeric_std.all;
+
+ENTITY tbController_PID IS
+END tbController_PID;
+
+ARCHITECTURE Structure OF tbController_PID IS
+	COMPONENT Controller_pid IS
+		PORT (Clk, RSTn, Start : IN STD_LOGIC;
+			Data_in : IN SIGNED ( 7 DOWNTO 0);
+			Done_sign : OUT STD_LOGIC ;
+			Out_MEM_B : OUT SIGNED ( 7 DOWNTO 0 ));
+	END COMPONENT;
+	
+	SIGNAL Clk_dut, RSTn_dut, Start_dut, Done_sign_dut :  STD_LOGIC;
+	SIGNAL Data_in_dut, Out_MEM_B_dut : SIGNED ( 7 DOWNTO 0);
+	
+	BEGIN 
+	
+	PROCESS 
+		BEGIN
+		Clk_dut <= '0';
+		WAIT FOR 10 ns;
+		Clk_dut <= '1';
+		WAIT FOR 10 ns;
+	END PROCESS;
+	
+	RSTn_dut <= '0', '1' after 15 ns;
+	Start_dut <= '1' after 20 ns;
+	Data_in_dut <= "00000001", "11111111" after 40 ns;-- "00000011" after 60 ns, "00000100" after 80 ns;
+	
+	controller : Controller_PID PORT MAP (Clk => CLK_dut, RSTn => RSTn_dut, Start => Start_dut, Data_in => Data_in_dut, Done_sign => Done_Sign_dut,
+														Out_MEM_B => OUT_MEM_B_dut );
+														
+END Structure;
