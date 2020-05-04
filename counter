@@ -39,11 +39,11 @@ ARCHITECTURE Structure OF counter IS
 								END IF;
 							ELSE 
 								IF ( count_conv = 0 ) THEN
-									count_conv <= 1023;
+									count_conv <= "1111111111" ; --1023
 								ELSE 
 									count_conv <= count_conv - 1;
 								END IF;
-									
+								END IF;
 							END IF;
 						END IF;
 				END IF;
