@@ -18,7 +18,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	END COMPONENT;
 	
 	COMPONENT mux_4to1_10bit IS
-		PORT ( u , v , x , y : IN SIGNED (9 DOWNTO 0);
+		PORT (  x , y , u , v  : IN SIGNED (9 DOWNTO 0);
 				 s : IN STD_LOGIC_VECTOR (1 DOWNTO 0);
 				 m : OUT SIGNED (9 DOWNTO 0) );
 	END COMPONENT;
@@ -72,7 +72,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	
 	SIGNAL Out_C1, Out_C2, Add_MEM_A : STD_LOGIC_VECTOR ( 9 DOWNTO 0 );
 	
-	SIGNAL Out_MEM_A, Out_R_8bit, Out_Mux_Saturation, Out_Mux_Signed_Sat : SIGNED ( 7 DOWNTO 0 );
+	SIGNAL Out_MEM_A, Out_R_8bit, Out_Mux_Saturation, Out_Mux_Signed_Sat, In_R_8bit : SIGNED ( 7 DOWNTO 0 );
 	
 	SIGNAL Sum, Out_R_20bit : SIGNED ( 19 DOWNTO 0 );
 	
@@ -94,13 +94,21 @@ ARCHITECTURE Structure OF Controller_PID IS
 	MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
 	
 	R_8bit : regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
+	  
+	Mux_k_1 : PROCESS (Out_C1) 
+	             BEGIN
+	               IF (Out_C1 = "0000000000" ) THEN 
+	                 In_R_8bit <= "00000000";
+	               ELSE In_R_8bit <= Out_MEM_A;
+	               END IF;
+	          END PROCESS;
 	
 	twoEk <= (Out_MEM_A(7) & Out_MEM_A & '0' );
 	fourEk<= ( Out_MEM_A & "00" );
 	quarterEk <= (Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7 DOWNTO 2) );
 	halfEk_1 <= ( Out_R_8bit(7) & Out_R_8bit(7) & Out_R_8bit(7)& Out_R_8bit(7 DOWNTO 1) );
 	
-	Mux_adder : Mux_4to1_10bit PORT MAP ( u => twoEk, v => fourEk, x => quarterEk, y => halfEk_1, s => MUX_Sel_adder , m => Out_Mux_adder );
+	Mux_adder : Mux_4to1_10bit PORT MAP ( x => twoEk, y => fourEk, u => quarterEk, v => halfEk_1, s => MUX_Sel_adder , m => Out_Mux_adder );
 	
 	Out_Mux_adder_20bit <= ( Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7)& Out_Mux_adder );
 	
@@ -108,13 +116,16 @@ ARCHITECTURE Structure OF Controller_PID IS
 	
 	R_20bit :regn_20bit PORT MAP ( R => Sum, Clock => Clk, Resetn => RSTn_R_20bit, Enable => '1', Q => Out_R_20bit );
 	
-	Mux_Saturation : Mux2to1_8bit PORT MAP ( x => Out_R_20bit( 7DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
+	Mux_Saturation : Mux2to1_8bit PORT MAP ( x => Out_R_20bit( 7 DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
 	
-	XOR_13bit <= (Out_R_20bit(19) XOR Out_R_20bit(18) XOR Out_R_20bit(17) XOR Out_R_20bit(16) XOR Out_R_20bit(15) XOR Out_R_20bit(14) XOR Out_R_20bit(13) XOR Out_R_20bit(12) XOR Out_R_20bit(11) XOR Out_R_20bit(10) XOR Out_R_20bit(9) XOR Out_R_20bit(8) XOR Out_R_20bit (7));
+	--XOR_13bit <= (Out_R_20bit(19) XOR Out_R_20bit(18) XOR Out_R_20bit(17) XOR Out_R_20bit(16) XOR Out_R_20bit(15) XOR Out_R_20bit(14) XOR Out_R_20bit(13) XOR Out_R_20bit(12) XOR Out_R_20bit(11) XOR Out_R_20bit(10) XOR Out_R_20bit(9) XOR Out_R_20bit(8) Xor Out_R_20bit (7));
 	
-	XOR_2bit <= XOR_13bit XOR  Out_R_20bit(8) ;
+	XOR_13bit <= (Out_R_20bit(19) OR Out_R_20bit(18) OR Out_R_20bit(17) OR Out_R_20bit(16) OR Out_R_20bit(15) OR Out_R_20bit(14) OR Out_R_20bit(13) OR Out_R_20bit(12) OR Out_R_20bit(11) OR Out_R_20bit(10) OR Out_R_20bit(9) OR Out_R_20bit(8) or Out_R_20bit (7)) AND 
+	   (not (Out_R_20bit(19) AND Out_R_20bit(18) AND Out_R_20bit(17) AND Out_R_20bit(16) AND Out_R_20bit(15) AND Out_R_20bit(14) AND Out_R_20bit(13) AND Out_R_20bit(12) AND Out_R_20bit(11) AND Out_R_20bit(10) AND Out_R_20bit(9) AND Out_R_20bit(8) AND Out_R_20bit (7)));
 	
-	Mux_Signed_Sat : Mux2to1_8bit PORT MAP ( x => "01111111", y =>"10000000", s => XOR_2bit, m => Out_Mux_Signed_Sat );
+	XOR_2bit <= XOR_13bit XOR  Out_R_20bit(19) ;
+	
+	Mux_Signed_Sat : Mux2to1_8bit PORT MAP ( x => "10000000", y =>"01111111", s => XOR_2bit, m => Out_Mux_Signed_Sat );
 	
 	MEM_B : RAM1024x8 PORT MAP ( Address => Out_C1, Data_in => Out_Mux_Saturation, CS => CS_MEM_B , RD_WRn => RD_WRn_MEM_B, Clk => Clk, Data_out => Out_MEM_B );
 	
@@ -134,7 +145,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 				
 			END PROCESS ;
 			
-			next_state_evaluation: process(PRESENT_STATE, data_in)
+			next_state_evaluation: process(PRESENT_STATE, start, out_c1, out_c2)
 				BEGIN
 					
 					case PRESENT_STATE is
@@ -188,10 +199,10 @@ ARCHITECTURE Structure OF Controller_PID IS
 						
 							SUB_ADDn <= '0';
 							RSTn_R_20bit <= '1';
-							CS_MEM_A <= '0';
 							CS_MEM_B <= '0';
 							Done_sign <= '0';
 							EN_R_8bit <= '0';
+							EN_C2 <= '0';
 							MUX_Sel_Counters <= '0';
 							
 							CASE PRESENT_STATE IS
@@ -204,7 +215,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 											Done_sign <= '0';
 											EN_R_8bit <= '0';
 											
-									WHEN WR_MEM_A => 
+									WHEN WR_MEM_A => 	
 											EN_C1 <= '1';
 											CS_MEM_A <= '1';
 											RD_WRn_MEM_A <= '0';
@@ -217,17 +228,20 @@ ARCHITECTURE Structure OF Controller_PID IS
 											RSTn_R_20bit <= '0';
 											
 									WHEN PROP_CONTR_1 =>
+									    EN_R_8bit <= '1';
 											L_C2 <= '0';
 											SUB_ADDn <= '0';
 											MUX_Sel_adder <= "01";
-											EN_R_8bit <= '0';
 											
 									WHEN PROP_CONTR_2 =>
 											MUX_Sel_adder <= "10";
 											
 									WHEN INT_CONTR =>
 											MUX_Sel_Counters <= '1';
-											EN_C2 <= '1';
+											IF (Out_C2 = "0000000000" ) THEN 
+											     EN_C2 <= '0';
+											ELSE EN_C2 <= '1';
+											END IF;
 											MUX_Sel_adder <= "00";
 											
 									WHEN DIFF_CONTR =>
@@ -241,7 +255,13 @@ ARCHITECTURE Structure OF Controller_PID IS
 											
 									WHEN DONE =>
 											Done_sign <= '1';
-									
+											EN_C1 <= '0';
+									    EN_C2 <= '0';
+									    EN_R_8bit <= '0';
+									    CS_MEM_A <= '0';
+									    CS_MEM_B <= '0';
+									    RSTn_R_20bit <= '0';									    
+									    
 									WHEN OTHERS => 
 											EN_C1 <= '0';
 											EN_C2 <= '0';
