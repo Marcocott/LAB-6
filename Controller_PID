@@ -80,7 +80,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	
 	SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
 	
-	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR_0, PROP_CONTR_1, PROP_CONTR_2, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
+	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR_0, PROP_CONTR_1, PROP_CONTR_2, INT_CONTR_0, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
 	SIGNAL PRESENT_STATE, NEXT_STATE : State_type;
 	
 	
@@ -165,14 +165,20 @@ ARCHITECTURE Structure OF Controller_PID IS
 					  
 					  when  PROP_CONTR_1 => next_state <= PROP_CONTR_2;
 					  
-					  when  PROP_CONTR_2 => next_state <= INT_CONTR;
+					  when  PROP_CONTR_2 => if Out_C2 = "0000000000" then
+					                        next_state <= INT_CONTR_0;
+					                        else
+														    next_state <= INT_CONTR;
+													     end if;
+													     
+						when  INT_CONTR_0 => next_state <= DIFF_CONTR;
 					  
-					  when  INT_CONTR => if  Out_C2 = "0000000000" then
-														next_state <= DIFF_CONTR;
-													else
-														next_state <= INT_CONTR;
-													end if;
-													
+					  when  INT_CONTR => if Out_C2 = "0000000000" then
+					                        next_state <= INT_CONTR_0;
+					                        else
+														    next_state <= INT_CONTR;
+													     end if;
+																																								
 					  when  DIFF_CONTR => next_state <= WR_MEM_B ;
 					  
 					  when  WR_MEM_B=> if   Out_C1 = "1111111111" then
@@ -236,12 +242,14 @@ ARCHITECTURE Structure OF Controller_PID IS
 									WHEN PROP_CONTR_2 =>
 											MUX_Sel_adder <= "10";
 											
+									WHEN INT_CONTR_0 =>
+									    EN_C2 <= '0';
+									    MUX_Sel_Counters <= '1';
+									    MUX_Sel_adder <= "00";
+									    
 									WHEN INT_CONTR =>
 											MUX_Sel_Counters <= '1';
-											IF (Out_C2 = "0000000000" ) THEN 
-											     EN_C2 <= '0';
-											ELSE EN_C2 <= '1';
-											END IF;
+		                  EN_C2 <= '1';
 											MUX_Sel_adder <= "00";
 											
 									WHEN DIFF_CONTR =>
