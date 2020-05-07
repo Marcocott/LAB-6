@@ -1,0 +1,27 @@
+LIBRARY ieee ;
+USE ieee.std_logic_1164.all ;
+USE ieee.numeric_std.all ;
+
+ENTITY tbadder_8bit IS
+END tbadder_8bit ;
+
+ARCHITECTURE Behavior OF tbadder_8bit IS
+	COMPONENT sommatore IS
+		PORT ( X, Y : IN SIGNED(19 DOWNTO 0) ;
+				   S : OUT SIGNED(19 DOWNTO 0) ;
+				   SUB_ADDn: in STD_LOGIC);
+	END COMPONENT;
+	
+	SIGNAL X_dut, Y_dut : SIGNED (19 DOWNTO 0) ;
+	SIGNAL S_dut : SIGNED (19 DOWNTO 0) ;
+	SIGNAL SUB_ADDn_dut : STD_LOGIC;
+	
+	BEGIN 
+	X_dut <=  "00000000000000110011" , "10000000000000000000" after 10 ns, "00000000000001111111" after 15 ns;
+	Y_dut <=  "00000000000001000001" , "10000000000000000000" after 10 ns, "00000000000000000001" after 15 ns;
+	SUB_ADDn_dut <= '1';
+	
+	dut : sommatore PORT MAP ( X => X_dut, Y => Y_dut, S => S_dut, SUB_ADDn => SUB_ADDn_dut );
+	
+END Behavior;
+	
