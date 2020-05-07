@@ -12,14 +12,20 @@ END sommatore;
 
 ARCHITECTURE Behavior OF sommatore IS
 
+COMPONENT adder IS
+	PORT (X, Y: IN SIGNED (19 DOWNTO 0);
+			S: OUT SIGNED (19 DOWNTO 0);
+		  Cin : IN SIGNED);
+END COMPONENT;
+
+SIGNAL out_exor,Cin : SIGNED (19 DOWNTO 0);
 BEGIN
-	PROCESS (SUB_ADDn, X, Y)
-		BEGIN 
-			IF(SUB_ADDn = '0') THEN
-				S <= X + Y;
-			ELSE 
-				S <= X - Y;
-			END IF;
-	END PROCESS;
+  Cin <= ("0000000000000000000" & SUB_ADDn);
+  Gen_adder:
+  FOR i IN 0 TO 19 GENERATE
+		out_exor(i) <= Y(i) XOR SUB_ADDn;
+	END GENERATE;
+	
+	add : adder PORT MAP (X => X, Y => out_exor, S => S, Cin => Cin);
 	
 END Behavior;
