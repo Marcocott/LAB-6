@@ -1,0 +1,19 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+USE ieee.numeric_std.all;
+
+ENTITY adder IS
+	PORT (X, Y: IN SIGNED (19 DOWNTO 0);
+			S: OUT SIGNED (19 DOWNTO 0);
+			Cin : IN SIGNED);
+END adder;
+
+ARCHITECTURE Behavior OF adder IS
+
+BEGIN
+	PROCESS (X, Y)
+		BEGIN 
+			S <= X + Y + Cin;
+	END PROCESS;
+	
+END Behavior;
