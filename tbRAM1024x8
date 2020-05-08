@@ -65,6 +65,7 @@ ARCHITECTURE Structure OF tbRAM1024x8 IS
 		Data_in_dut <= to_signed(tmp, 8);
 		wait for 20 ns;
 	end loop;
+	WAIT ;
 	file_close(numeri_casuali);
 	END PROCESS;
 	
