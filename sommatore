@@ -4,6 +4,12 @@ LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
 
+-- Definizione della entity sommatore
+-- con i rispettivi vettori di input, il vettore
+-- di output ed il segnale SUB_ADDn che stabilisce se 
+-- l'operazione eseguita dal sommatore è una somma
+-- oppure una differenza.
+
 ENTITY sommatore IS
 	PORT (X, Y: IN SIGNED (19 DOWNTO 0);
 			S: OUT SIGNED (19 DOWNTO 0);
@@ -12,15 +18,33 @@ END sommatore;
 
 ARCHITECTURE Behavior OF sommatore IS
 
+-- Richiamo del componente adder.
+
 COMPONENT adder IS
 	PORT (X, Y: IN SIGNED (19 DOWNTO 0);
 			S: OUT SIGNED (19 DOWNTO 0);
 		  Cin : IN SIGNED);
 END COMPONENT;
 
+-- Il segnale out_exor contiene l'XOR tra Y
+-- ed il segnale SUB_ADDn.
+-- Il segnale Cin contiene la concatenazione di 19 zeri 
+-- con SUB_ADDn per rispettare la dimensione giusta del risultato
+-- fornito dal sommatore
+
 SIGNAL out_exor,Cin : SIGNED (19 DOWNTO 0);
+
 BEGIN
+  
   Cin <= ("0000000000000000000" & SUB_ADDn);
+   
+-- Utilizzo del costrutto GENERATE per l'esecuzione
+-- di 20 XOR bit a bit tra gli elementi di Y
+-- ed il segnale SUB_ADDn; successivamente ad Y
+-- verrà assegnato il risultato di questi XOR.
+-- Se SUB_ADDn è 0, verrà eseguita la somma X + Y.
+-- Se SUB_ADDn è 1, verrà eseguita la differenza x - Y;
+  
   Gen_adder:
   FOR i IN 0 TO 19 GENERATE
 		out_exor(i) <= Y(i) XOR SUB_ADDn;
@@ -29,3 +53,4 @@ BEGIN
 	add : adder PORT MAP (X => X, Y => out_exor, S => S, Cin => Cin);
 	
 END Behavior;
+
