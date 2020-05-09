@@ -1,5 +1,10 @@
+-- mux_2to1
+
 library ieee;
 use ieee.std_logic_1164.all;
+
+-- Definizione della entity mux_2to1
+-- con i rispettivi valori di input, il selettore e l'output.
 
 entity mux_2to1 is
 port(x0, y0, s: in std_logic;
@@ -7,6 +12,8 @@ port(x0, y0, s: in std_logic;
 end mux_2to1;
 
 architecture Behavior of mux_2to1 is
+
+-- Implementazione della funzione logica svolta da mux_2to1.
     
 begin 
 m0 <= (NOT (s) AND x0) OR (s AND y0);
