@@ -4,6 +4,10 @@ LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
 
+-- Definizione della entity counter
+-- con i rispettivi segnali di reset, enable, load, U_Dn (UP_DOWN), clock
+-- ed i vettori di input ed output data_in e count.
+
 ENTITY counter IS
 		PORT ( resetn, enable, load, U_Dn : IN STD_LOGIC;
 				 clock :IN STD_LOGIC;
@@ -13,15 +17,50 @@ END counter;
 
 ARCHITECTURE Structure OF counter IS
 
+	-- Definizione di due segnali che conterranno la conversione
+	-- UNSIGNED di count e data_in.
+	
 	SIGNAL count_conv, data_in_conv : UNSIGNED (9 DOWNTO 0);
 	
 	BEGIN 
 
+ -- Conversione in UNSIGNED di data_in.	
+  
   data_in_conv <= UNSIGNED (data_in);
+	
+	-- Definizione di un PROCESS che si sveglia 
+	-- sul fronte attivo del clock.
+	
 	PROCESS ( clock )
 			
+	-- Sul fronte attivo del clock:
+	
+	-- se il reset assume 0, il circuito viene
+	-- resettato e quindi in count_conv verranno 
+	-- portati tutti i bit a 0;
+	
+	-- nel caso in cui il reset assuma 1:
+
+	-- se il load assume 1 allora il circuito fornirà in uscita
+	-- il vettore data_in (dopo essere stato convertito);
+	
+	-- se il load assume 0, l'enable assume 1,
+	-- U_Dn assume 1 e count_conv assume 1023,
+	-- ovvero il massimo valore che possa contenere,
+	-- allora il contatore viene resettato, altrimenti
+	-- se il load assume 0, l'enable assume 1,
+	-- U_Dn assume 1 ma count_conv non ha raggiunto il
+	-- valore massimo, il contatore viene incrementato.
+	
+	-- se il load assume 0, l'enable assume 1,
+	-- U_Dn assume 0 e count_conv assume 0,
+	-- il contatore viene portato al valore massimo,
+	-- altrimenti se il load assume 0, l'enable assume 1,
+	-- U_Dn assume 0 ma count_conv non assume 0,
+	-- il contatore viene decrementato.
+	
 			BEGIN
-			
+	
 				IF (clock'EVENT AND clock = '1') THEN
 				
 						IF( resetn = '0' ) THEN
@@ -48,6 +87,8 @@ ARCHITECTURE Structure OF counter IS
 						END IF;
 				END IF;
 	END PROCESS;
+	
+-- Conversione in STD_LOGIC_VECTOR di count_conv.	
 	
 	count <= std_logic_vector (count_conv);
 	
