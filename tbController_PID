@@ -1,38 +1,68 @@
---tbController_PID
-
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
+USE std.textio.all;
 
 ENTITY tbController_PID IS
 END tbController_PID;
 
-ARCHITECTURE Structure OF tbController_PID IS
-	COMPONENT Controller_pid IS
-		PORT (Clk, RSTn, Start : IN STD_LOGIC;
+ARCHITECTURE file_testing OF tbController_PID IS
+	
+COMPONENT Controller_PID IS
+	PORT (Clk, RSTn, Start : IN STD_LOGIC;
 			Data_in : IN SIGNED ( 7 DOWNTO 0);
 			Done_sign : OUT STD_LOGIC ;
 			Out_MEM_B : OUT SIGNED ( 7 DOWNTO 0 ));
-	END COMPONENT;
+END COMPONENT;
+
+SIGNAL Data_in, Out_MEM_B : signed(7 downto 0);
+SIGNAL Clk, RSTn, Start, Done_sign : std_logic;
+
+BEGIN
 	
-	SIGNAL Clk_dut, RSTn_dut, Start_dut, Done_sign_dut :  STD_LOGIC;
-	SIGNAL Data_in_dut, Out_MEM_B_dut : SIGNED ( 7 DOWNTO 0);
+	Clk_proc : process
+	begin
+		Clk <= '1', '0' after 10 ns;
+		wait for 20 ns;
+	END process;
 	
-	BEGIN 
+	RSTn <= '0', '1' after 5 ns;
 	
-	PROCESS 
-		BEGIN
-		Clk_dut <= '0';
-		WAIT FOR 10 ns;
-		Clk_dut <= '1';
-		WAIT FOR 10 ns;
-	END PROCESS;
+	Start <= '1', '0' after 200 ns;
+
+	process is
+	file infile : text open read_mode is "Numeri casuali.txt";
+	variable data: integer := 0;
+	variable buf: line;
+	begin
+		wait for 21 ns;
+		while not (endfile (infile)) loop
+			readline(infile, buf);
+			read(buf, data);
+			Data_in <= to_signed(data, 8);
+			wait for 20 ns;
+		end loop;
+		wait;
+	end process;
+			
+	process
+	file outfile : text open write_mode is "file_out.txt";
+	variable data: integer := 0;
+	variable buf: line;
+	variable cnt: integer := 0;
+	begin
+		wait for 10639381 ns;
+		while (cnt /= 1024) loop
+			data := to_integer(Out_MEM_B);
+			write(buf, data);
+			writeline(outfile, buf);
+			cnt := cnt + 1;
+			wait for 20 ns;
+		end loop;
+		wait;
+	end process;
 	
-	RSTn_dut <= '0', '1' after 15 ns;
-	Start_dut <= '1' after 20 ns;
-	Data_in_dut <= "00000001", "11111111" after 40 ns;-- "00000011" after 60 ns, "00000100" after 80 ns;
+	-- DEVICE UNDER TEST
+	PID_UT : Controller_PID port map ( Clk, RSTn, Start, Data_in, Done_sign, Out_MEM_B );
 	
-	controller : Controller_PID PORT MAP (Clk => CLK_dut, RSTn => RSTn_dut, Start => Start_dut, Data_in => Data_in_dut, Done_sign => Done_Sign_dut,
-														Out_MEM_B => OUT_MEM_B_dut );
-														
-END Structure;
+END file_testing;
