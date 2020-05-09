@@ -66,7 +66,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	END COMPONENT;
 	
 	SIGNAL EN_C1, EN_C2, CS_MEM_A, CS_MEM_B,  EN_R_8bit, RD_WRn_MEM_A, RD_WRn_MEM_B, L_C2, RSTn_R_20bit, SUB_ADDn,   --EN_R_20bit,
-			 MUX_Sel_Counters, XOR_13bit , XOR_2bit: STD_LOGIC;
+			 MUX_Sel_Counters, XOR_13bit , XOR_2bit, Sel_Mux_k_1: STD_LOGIC;
 			 
 	SIGNAL MUX_Sel_adder : STD_LOGIC_VECTOR ( 1 DOWNTO 0 );
 	
@@ -94,14 +94,10 @@ ARCHITECTURE Structure OF Controller_PID IS
 	MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
 	
 	R_8bit : regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
-	  
-	Mux_k_1 : PROCESS (Out_C1) 
-	             BEGIN
-	               IF (Out_C1 = "0000000000" ) THEN 
-	                 In_R_8bit <= "00000000";
-	               ELSE In_R_8bit <= Out_MEM_A;
-	               END IF;
-	          END PROCESS;
+	 
+	Sel_Mux_k_1 <= ( Out_C1(0) OR Out_C1(1) OR Out_C1(2) OR Out_C1(3) OR Out_C1(4) OR Out_C1(5) OR Out_C1(6) OR Out_C1(7) OR Out_C1(8) OR Out_C1(9));
+	
+	Mux_k_1 : Mux2to1_8bit PORT MAP ( x => "00000000", y => Out_MEM_A, s => Sel_Mux_k_1, m => In_R_8bit );
 	
 	twoEk <= (Out_MEM_A(7) & Out_MEM_A & '0' );
 	fourEk<= ( Out_MEM_A & "00" );
