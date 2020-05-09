@@ -1,6 +1,12 @@
+-- mux_2to1_10bit
+
 LIBRARY ieee ;
 USE ieee.std_logic_1164.all ;
 USE ieee.numeric_std.all;
+
+-- Definizione della entity mux_2to1_10bit
+-- con i rispettivi vettori di input e output 
+-- ed il selettore.
 
 ENTITY mux_2to1_10bit IS
  PORT (  
@@ -12,10 +18,17 @@ END mux_2to1_10bit ;
 
 ARCHITECTURE Structure OF mux_2to1_10bit IS
 
+-- Richiamo del componente mux_2to1.
+
 COMPONENT mux_2to1 IS
 PORT ( x0, y0, s : IN STD_LOGIC ;
        m0 : OUT STD_LOGIC ) ;
 END COMPONENT; 
+
+-- Instanziazione di 10 componenti mux_2to1 
+-- per l'implementazione del circuito mux_2to1_10bit
+-- con l'utilizzo del costrutto GENERATE.
+
 BEGIN
 	
 	Gen_mux:
