@@ -80,7 +80,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	
 	SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
 	
-	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR_0, PROP_CONTR_1, PROP_CONTR_2, INT_CONTR_0, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE);
+	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR_0, PROP_CONTR_1, PROP_CONTR_2, INT_CONTR_0, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE, RD_MEM_B);
 	SIGNAL PRESENT_STATE, NEXT_STATE : State_type;
 	
 	
@@ -182,10 +182,17 @@ ARCHITECTURE Structure OF Controller_PID IS
 					  when  DIFF_CONTR => next_state <= WR_MEM_B ;
 					  
 					  when  WR_MEM_B=> if   Out_C1 = "1111111111" then
-														next_state <= DONE;
+														next_state <= RD_MEM_B;
 													else
 														next_state <= PROP_CONTR_0;
 													end if;
+													
+						when RD_MEM_B => if   Out_C1 = "1111111111" then
+														next_state <= DONE;
+													else
+														next_state <= RD_MEM_B;
+													end if;
+													
 					  WHEN DONE => if Start = '1' then
 											next_state <= DONE;
 										else
@@ -248,8 +255,8 @@ ARCHITECTURE Structure OF Controller_PID IS
 									    MUX_Sel_adder <= "00";
 									    
 									WHEN INT_CONTR =>
+									    EN_C2 <= '1';
 											MUX_Sel_Counters <= '1';
-		                  EN_C2 <= '1';
 											MUX_Sel_adder <= "00";
 											
 									WHEN DIFF_CONTR =>
@@ -259,6 +266,11 @@ ARCHITECTURE Structure OF Controller_PID IS
 									WHEN WR_MEM_B => 
 											CS_MEM_B <= '1';
 											RD_WRn_MEM_B <= '0';
+											EN_C1 <= '1';
+											
+									WHEN RD_MEM_B =>
+									    CS_MEM_B <= '1';
+											RD_WRn_MEM_B <= '1';
 											EN_C1 <= '1';
 											
 									WHEN DONE =>
