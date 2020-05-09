@@ -1,7 +1,14 @@
+-- RAM1024x8
+
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 use std.textio.all;
+
+-- Definizione della entity RAM1024x8 
+-- con i rispettivi segnali di CS (seleziona la memoria), 
+-- RD_WRn (per scrivere e leggere), il clock, i vettori di 
+-- input Address e Data_in e l'output Data_out.
 
 entity RAM1024x8 is
 	
@@ -14,11 +21,37 @@ end entity RAM1024x8;
 
 architecture Behavior of RAM1024x8 is
 
+-- Definizione del tipo ram_array per la creazione
+-- di una memoria da 1024 celle con parallelismo 
+-- ad 8 bit.
+
 type ram_array is array (0 to 1023) of SIGNED(7 downto 0);
+
+-- mem (ad uno specifico indirizzo) andrà a contenere 
+-- il vettore fornito in ingresso.
+
 signal mem: ram_array;
 
 begin
+  
+-- Definizione di un PROCESS che si sveglia 
+-- sul fronte attivo del clock.
+
 p0: PROCESS (clk) is
+
+-- Sul fronte attivo del clock e se CS assume 1, ovvero la
+-- memoria è stata selezionata:
+
+-- se RD_WRn assume 0 allora la memoria viene scritta,
+-- quindi Data_in viene assegnato all'indirizzo (opportunamente
+-- convertito prima in numero senza segno e poi in intero) della memoria
+-- in cui bisogna scrivere;
+
+-- se RD_WRn assume 1 allora la memoria viene letta,
+-- quindi a Data_out viene assegnato l'indirizzo (opportunamente
+-- convertito prima in numero senza segno e poi in intero) della memoria
+-- da leggere.
+
 	BEGIN
 	if clk = '1' and clk'event then
 		if CS = '1' then
