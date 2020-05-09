@@ -1,6 +1,12 @@
+-- adder
+
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
+
+-- Definizione della entity adder
+-- con i rispettivi vettori degli addendi, il vettore
+-- per la somma ed il segnale di carry_in.
 
 ENTITY adder IS
 	PORT (X, Y: IN SIGNED (19 DOWNTO 0);
@@ -9,6 +15,9 @@ ENTITY adder IS
 END adder;
 
 ARCHITECTURE Behavior OF adder IS
+
+-- Definizione del PROCESS per 
+-- l'esecuzione della somma.
 
 BEGIN
 	PROCESS (X, Y)
