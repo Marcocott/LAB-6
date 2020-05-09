@@ -1,9 +1,12 @@
--- Definizione della libreria ieee 
--- Utilizzo dello standard logic 1164 all'interno della stessa 
+-- mux_4to1
 
 LIBRARY ieee;   
 USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
+
+-- Definizione della entity mux_4to1
+-- con i rispettivi valori di input e output 
+-- ed il selettore a 2 bit.
 
 ENTITY mux_4to1 IS
 PORT (
@@ -14,13 +17,24 @@ PORT (
 END mux_4to1;
 
 ARCHITECTURE Structure OF mux_4to1 IS
+
+-- Richiamo del componente mux_2to1.
   
 COMPONENT mux_2to1 IS
 PORT ( x0, y0, s : IN STD_LOGIC ;
        m0 : OUT STD_LOGIC ) ;
 END COMPONENT;
 
+-- Definizione di due segnali che conterranno gli
+-- output dei primi due mux_2to1 instanziati,
+-- ovvero multiplexer2to1_first e multiplexer2to1_second.
+
 signal out_1, out_2 : STD_LOGIC; 
+
+-- Instanziazione di 3 componenti mux_2to1 
+-- per l'implementazione del circuito mux_4to1.
+-- Si noti che il segnale di selezione è lo stesso
+-- per i primi due mux_2to1 instanziati.
 
 BEGIN 
 
