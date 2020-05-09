@@ -1,6 +1,12 @@
+-- mux2to1_8bit
+
 LIBRARY ieee ;
 USE ieee.std_logic_1164.all ;
 USE ieee.numeric_std.all;
+
+-- Definizione della entity mux2to1_8bit
+-- con i rispettivi vettori di input e output 
+-- ed il selettore.
 
 ENTITY mux2to1_8bit IS
  PORT (  
@@ -12,12 +18,18 @@ END mux2to1_8bit ;
 
 ARCHITECTURE Structure OF mux2to1_8bit IS
 
+-- Richiamo del componente mux_2to1.
+
 COMPONENT mux_2to1 IS
 PORT ( x0, y0, s : IN STD_LOGIC ;
        m0 : OUT STD_LOGIC ) ;
 END COMPONENT;
 
+-- Instanziazione di 8 componenti mux_2to1 
+-- per l'implementazione del circuito mux2to1_8bit.
+
 BEGIN
+  
  Mux0: mux_2to1 PORT MAP (x0 => x(0) , y0 => y(0) , s => s, m0 => m(0)); 
 
  Mux1: mux_2to1 PORT MAP (x0 => x(1) , y0 => y(1) , s => s, m0 => m(1) ); 
@@ -34,5 +46,4 @@ BEGIN
 
  Mux7: mux_2to1 PORT MAP (x0 => x(7) , y0 => y(7) , s => s, m0 => m(7) ); 
   
- 
 END Structure ;
