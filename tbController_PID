@@ -51,7 +51,7 @@ BEGIN
 	variable buf: line;
 	variable cnt: integer := 0;
 	begin
-		wait for 10639381 ns;
+		wait for 10598461 ns;
 		while (cnt /= 1024) loop
 			data := to_integer(Out_MEM_B);
 			write(buf, data);
