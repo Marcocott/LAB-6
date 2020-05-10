@@ -93,7 +93,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	 
 	MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
 	
-	R_8bit : regn_8bit PORT MAP ( R => Out_MEM_A, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
+	R_8bit : regn_8bit PORT MAP ( R => In_R_8bit, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
 	 
 	Sel_Mux_k_1 <= ( Out_C1(0) OR Out_C1(1) OR Out_C1(2) OR Out_C1(3) OR Out_C1(4) OR Out_C1(5) OR Out_C1(6) OR Out_C1(7) OR Out_C1(8) OR Out_C1(9));
 	
@@ -106,7 +106,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 	
 	Mux_adder : Mux_4to1_10bit PORT MAP ( x => twoEk, y => fourEk, u => quarterEk, v => halfEk_1, s => MUX_Sel_adder , m => Out_Mux_adder );
 	
-	Out_Mux_adder_20bit <= ( Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7) & Out_Mux_adder(7)& Out_Mux_adder );
+	Out_Mux_adder_20bit <= ( Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9)& Out_Mux_adder );
 	
 	add : sommatore PORT MAP ( X => Out_R_20bit, Y => Out_Mux_adder_20bit, S => Sum, SUB_ADDn => SUB_ADDn );
 	
@@ -161,11 +161,14 @@ ARCHITECTURE Structure OF Controller_PID IS
 					  
 					  when  PROP_CONTR_1 => next_state <= PROP_CONTR_2;
 					  
-					  when  PROP_CONTR_2 => if Out_C2 = "0000000000" then
+					  when  PROP_CONTR_2 => if Out_C2 = "0000000000"  then
 					                        next_state <= INT_CONTR_0;
-					                        else
+					                        elsif Out_C2 = "1111111111" then
+					                          next_state <= INT_CONTR_0;
+					                          else
 														    next_state <= INT_CONTR;
 													     end if;
+													     
 													     
 						when  INT_CONTR_0 => next_state <= DIFF_CONTR;
 					  
@@ -237,13 +240,13 @@ ARCHITECTURE Structure OF Controller_PID IS
 											RSTn_R_20bit <= '0';
 											
 									WHEN PROP_CONTR_1 =>
-									    EN_R_8bit <= '1';
 											L_C2 <= '0';
 											SUB_ADDn <= '0';
 											MUX_Sel_adder <= "01";
 											
 									WHEN PROP_CONTR_2 =>
 											MUX_Sel_adder <= "10";
+											EN_C2 <= '1';
 											
 									WHEN INT_CONTR_0 =>
 									    EN_C2 <= '0';
@@ -256,6 +259,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 											MUX_Sel_adder <= "00";
 											
 									WHEN DIFF_CONTR =>
+									  	 EN_R_8bit <= '1';
 											MUX_Sel_adder <= "11";
 											SUB_ADDn <= '1';
 											
@@ -291,3 +295,7 @@ ARCHITECTURE Structure OF Controller_PID IS
 					END PROCESS;
 					
 END Structure;
+											
+				
+				
+			
