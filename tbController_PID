@@ -3,12 +3,16 @@ USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
 USE std.textio.all;
 
+
+--Nel testbench si è deciso di valutare il funzionamento del circuito scrivendo su file 
+--i risultati ottenuti. 
+
 ENTITY tbController_PID IS
 END tbController_PID;
 
 ARCHITECTURE file_testing OF tbController_PID IS
 	
-COMPONENT Controller_PID IS
+COMPONENT Controller_PID IS                             
 	PORT (Clk, RSTn, Start : IN STD_LOGIC;
 			Data_in : IN SIGNED ( 7 DOWNTO 0);
 			Done_sign : OUT STD_LOGIC ;
@@ -20,44 +24,61 @@ SIGNAL Clk, RSTn, Start, Done_sign : std_logic;
 
 BEGIN
 	
-	Clk_proc : process
+	Clk_proc : process       --Clock a frequenza 50 MHz
 	begin
 		Clk <= '1', '0' after 10 ns;
 		wait for 20 ns;
 	END process;
 	
-	RSTn <= '0', '1' after 5 ns;
+	RSTn <= '0', '1' after 5 ns; 
 	
 	Start <= '1', '0' after 200 ns;
 
+
+--Si sono considerati due PROCESS, uno in lettura del fil e uno in scrittura.
+
+--Process per la lettura del file
+--Si apre il file denominato "Numeri casuali" in lettura.
 	process is
-	file infile : text open read_mode is "Numeri casuali.txt";
+	file infile : text open read_mode is "Numeri casuali.txt";   
 	variable data: integer := 0;
 	variable buf: line;
+	--si definiscono due variabili, "buf" per leggere la riga del file,
+	--e "data" per leggere all'interno della riga il numero intero dal file.
+	--Il file viene strutturato in 1024 righe ognuna contenete un numero intero
+	--compreso tra -128 e 127.
+	
 	begin
 		wait for 21 ns;
 		while not (endfile (infile)) loop
-			readline(infile, buf);
-			read(buf, data);
-			Data_in <= to_signed(data, 8);
-			wait for 20 ns;
-		end loop;
+			readline(infile, buf);       --Si legge la riga
+			read(buf, data);             --Si legge l'intero nella riga
+			Data_in <= to_signed(data, 8);   --Si assegna a Data_in (l'ingresso del circutio
+			wait for 20 ns;                  --TOP LEVEL) il numero intero convertito in signed
+		end loop;                         -- leggo dal file.
 		wait;
 	end process;
-			
+
+--Process per la scittura del file
+--Si apre il file denominato "file_out" in scrittura.		
 	process
 	file outfile : text open write_mode is "file_out.txt";
 	variable data: integer := 0;
 	variable buf: line;
 	variable cnt: integer := 0;
+		--si definiscono due variabili, "buf" per scrivere la riga nel file,
+	--e "data" per scrivere all'interno della riga il numero intero.
+	--Viene aggiunta anche la variabile "cnt" inizializzata a 0 per 
+	--tenere il conto delle righe scritte. 
+	
 	begin
-		wait for 10598461 ns;
-		while (cnt /= 1024) loop
-			data := to_integer(Out_MEM_B);
+		wait for 10598461 ns;              --La scrittura su file inizia nel momento in cui si entra per la prima 
+		while (cnt /= 1024) loop           --volta nello stato di RD_MEM_B nella simulatione, esattamente a 
+			data := to_integer(Out_MEM_B);   -- 10598460 ns. Si aggiunge 1 ns per considerare eventuali ritardi.
 			write(buf, data);
 			writeline(outfile, buf);
 			cnt := cnt + 1;
-			wait for 20 ns;
+			wait for 20 ns;   --L'operazione è effettuata ogni colpo di clock quindi ogni 20 ns.
 		end loop;
 		wait;
 	end process;
