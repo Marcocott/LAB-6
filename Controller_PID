@@ -10,10 +10,10 @@ USE ieee.numeric_std.all;
 -- i valori ottenuti con quelli attesi calcolati su MATLAB.
 
 ENTITY Controller_PID IS                              
-	PORT (Clk, RSTn, Start : IN STD_LOGIC;
-			Data_in : IN SIGNED ( 7 DOWNTO 0);
-			Done_sign : OUT STD_LOGIC ;
-			Out_MEM_B : OUT SIGNED ( 7 DOWNTO 0 ));
+  PORT (Clk, RSTn, Start : IN STD_LOGIC;
+      Data_in : IN SIGNED ( 7 DOWNTO 0);
+      Done_sign : OUT STD_LOGIC ;
+      Out_MEM_B : OUT SIGNED ( 7 DOWNTO 0 ));
 END Controller_PID;
 
 ARCHITECTURE Structure OF Controller_PID IS
@@ -22,322 +22,338 @@ ARCHITECTURE Structure OF Controller_PID IS
   --RD_WRn per impostare la memoria in scrittura (1) e in 
   --lettura (0) rispettivamente.
   
-	COMPONENT RAM1024x8 IS                             
-		PORT ( Address: in std_logic_vector(9 downto 0);
-				 Data_in: in SIGNED(7 downto 0);
-				 CS, RD_WRn, Clk: in std_logic;
-				 Data_out: out SIGNED(7 downto 0));
-	END COMPONENT;
-	
-	COMPONENT mux_4to1_10bit IS
-		PORT (  x , y , u , v  : IN SIGNED (9 DOWNTO 0);
-				 s : IN STD_LOGIC_VECTOR (1 DOWNTO 0);
-				 m : OUT SIGNED (9 DOWNTO 0) );
-	END COMPONENT;
-	
-	COMPONENT counter IS
-		PORT ( resetn, enable, load, U_Dn : IN STD_LOGIC;
-				 clock :IN STD_LOGIC;
-				 data_in : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
-				 count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0));
-	END COMPONENT;
-	
-	COMPONENT sommatore IS
-		PORT ( X, Y: IN SIGNED (19 DOWNTO 0);
-				 S: OUT SIGNED (19 DOWNTO 0);
-				 SUB_ADDn : IN STD_LOGIC);
-	END COMPONENT;
-	
-	COMPONENT regn_20bit IS
-		GENERIC ( N : integer:=20);
-		
-		PORT (R : IN SIGNED(N-1 DOWNTO 0);
-				Clock, Resetn, Enable : IN STD_LOGIC;
-				Q : OUT SIGNED(N-1 DOWNTO 0));
-	END COMPONENT;
-	
-	COMPONENT regn_8bit IS
-		GENERIC ( N : integer:=8);
-		
-		PORT (R : IN SIGNED(N-1 DOWNTO 0);
-				Clock, Resetn, Enable : IN STD_LOGIC;
-				Q : OUT SIGNED(N-1 DOWNTO 0));
-	END COMPONENT;
-	
-	COMPONENT Mux2to1_8bit IS
-		PORT (x, y: IN SIGNED( 7 DOWNTO 0 );
-					s: IN STD_LOGIC;
-					m: OUT SIGNED( 7 DOWNTO 0 ));
-	END COMPONENT;
-	
-	COMPONENT Mux_2to1_10bit IS
-		PORT (x, y: IN STD_LOGIC_VECTOR( 9 DOWNTO 0 );
-					s: IN STD_LOGIC;
-					m: OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 ));
-	END COMPONENT;
-	
-	SIGNAL   EN_R_8bit, EN_C1, EN_C2: STD_LOGIC;   --Segnali di Enable dei contatori e registro a 8 bit
-	SIGNAL   CS_MEM_A, CS_MEM_B: STD_LOGIC;        --Segnali di Chip Selected delle memorie
-	SIGNAL   RD_WRn_MEM_A, RD_WRn_MEM_B: STD_LOGIC;--Segnali di lettura e scrittura memoria
-	SIGNAL   L_C2: STD_LOGIC;                      --Segnale di Load per caricare nel contatore 2 il valore
-	                                               --del conteggio del contatore 1
-	SIGNAL   RSTn_R_20bit: STD_LOGIC;              --Reset registro a 20 bit dove si salvano le somme parziali
-	SIGNAL   SUB_ADDn: STD_LOGIC;                  --Segnale per impostare il sommatore in addizione o sottrazione 
-	SIGNAL   XOR_13bit , XOR_2bit: STD_LOGIC;      --Segnali che gestiscono la saturazione
-	SIGNAL   MUX_Sel_Counters: STD_LOGIC;          --Segnale di selezione del multiplexer che fornisce l'indirizzo 
-	                                               --alla memoria A. 
-	SIGNAL   Sel_Mux_k_1: STD_LOGIC;               --Segnale di selezione del multiplexer che fornisce il valore da 
-	                                               --memorizzare al registro a 8 bit.
-			 
-	SIGNAL MUX_Sel_adder : STD_LOGIC_VECTOR ( 1 DOWNTO 0 );    --Segnale di selezione del multiplexer che fornisce
-	                                                           --al sommatore il dato corretto da aggiungere alla somma parziale
-	
-	SIGNAL Out_C1, Out_C2, Add_MEM_A : STD_LOGIC_VECTOR ( 9 DOWNTO 0 );    --Uscite dei contatori e segnale degli indirizzi della memoria A.
-	
-	SIGNAL Out_MEM_A, Out_R_8bit, Out_Mux_Saturation, Out_Mux_Signed_Sat, In_R_8bit : SIGNED ( 7 DOWNTO 0 );
-	--Dato in uscita dalla memoria A in lettura, uscita del registro a 8 bit, uscita del multiplexer nel circuito di
-	--saturazione,uscita del secondomultiplexer nel circuito di saturazione e ingresso del registro a 8 bit.
-	
-	SIGNAL Sum, Out_R_20bit : SIGNED ( 19 DOWNTO 0 );
-	--Segnale di uscita del sommatore e uscita del registro a 20 bit, che tiene memoria delle somme parziali.
-	
-	SIGNAL twoEk, fourEk, quarterEk, halfEk_1, Out_Mux_adder: SIGNED ( 9 DOWNTO 0 );
-	--I primi 4 dei segnali attraverso i quali si effettuano le operazioni di moltiplicazione e divisione
-	--per 2 e per 4.
-	
-	SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
-	--Uscita del multiplexer che regola un ingresso del sommatore.
-	
-	TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR_0, PROP_CONTR_1, PROP_CONTR_2, INT_CONTR_0, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE, RD_MEM_B);
-	SIGNAL PRESENT_STATE, NEXT_STATE : State_type;
-	--Definizione degli stati della macchina attraverso un tipo di segnale Stare_type. Si definiscono inoltre il segnale di 
-	--stato corrente (PRESENT_STATE) e il segnale del prossimo stato (NEXT_STATE)
-	
-	BEGIN
-	
-	--Si richiamano i due contatori. Il primo definito in modo da incrementare il conto ad ogni colpo di clock e in modo da non utilizzare mai il segnale 
-	--di load. Questo infatti è utilizzato solo dal secondo che carica il conteggio del primo quando si calcola il contributo integrale. Lo stesso è stato
-	--infatti definito in modo da partire dal valore Out_C1 e da decrementare fino a 0.
-	Counter1 : counter PORT MAP ( Resetn => RSTn, Enable => EN_C1, Load => '0', U_Dn => '1', Clock => Clk, Data_in => "0000000000", count => Out_C1 );
-	Counter2 : counter PORT MAP ( Resetn => RSTn, Enable => EN_C2, Load => L_C2, U_Dn => '0', Clock => Clk, Data_in => Out_C1, count => Out_C2 );
-	
-	--Questo multiplexer regola il segnale dell'indirizzo della memoria A in modo da considerare il conteggio del Counter 2 quando si 
-	--vuole calcolare il contributo integrale.
-	Mux_Counters : Mux_2to1_10bit PORT MAP ( x => Out_C1, y => Out_C2, s => MUX_Sel_Counters, m => Add_MEM_A );
-	
-	--Memoria utilizzata per salvare i dati in ingresso corrispondenti agli errori da calcolare.
-	MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
-	
-	--Registro utilizzato per memorizzare il valore dell'errore del ciclo precedente in modo da poter calcolare il contributo derivato.
-	R_8bit : regn_8bit PORT MAP ( R => In_R_8bit, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
-	
-	--Il registro a 8 bit nel caso in cui ci si trovi al primo ciclo (Out_C1 ="0000000000") memorizza 0 al suo interno, per evitare che si sommi al registro
+  COMPONENT RAM1024x8 IS                             
+    PORT ( Address: in std_logic_vector(9 downto 0);
+         Data_in: in SIGNED(7 downto 0);
+         CS, RD_WRn, Clk: in std_logic;
+         Data_out: out SIGNED(7 downto 0));
+  END COMPONENT;
+  
+  COMPONENT mux_4to1_10bit IS
+    PORT (  x , y , u , v  : IN SIGNED (9 DOWNTO 0);
+         s : IN STD_LOGIC_VECTOR (1 DOWNTO 0);
+         m : OUT SIGNED (9 DOWNTO 0) );
+  END COMPONENT;
+  
+  COMPONENT counter IS
+    PORT ( resetn, enable, load, U_Dn : IN STD_LOGIC;
+         clock :IN STD_LOGIC;
+         data_in : IN STD_LOGIC_VECTOR(9 DOWNTO 0);
+         count : OUT STD_LOGIC_VECTOR(9 DOWNTO 0));
+  END COMPONENT;
+  
+  COMPONENT sommatore IS
+    PORT ( X, Y: IN SIGNED (19 DOWNTO 0);
+         S: OUT SIGNED (19 DOWNTO 0);
+         SUB_ADDn : IN STD_LOGIC);
+  END COMPONENT;
+  
+  COMPONENT regn_20bit IS
+    GENERIC ( N : integer:=20);
+    
+    PORT (R : IN SIGNED(N-1 DOWNTO 0);
+        Clock, Resetn, Enable : IN STD_LOGIC;
+        Q : OUT SIGNED(N-1 DOWNTO 0));
+  END COMPONENT;
+  
+  COMPONENT regn_8bit IS
+    GENERIC ( N : integer:=8);
+    
+    PORT (R : IN SIGNED(N-1 DOWNTO 0);
+        Clock, Resetn, Enable : IN STD_LOGIC;
+        Q : OUT SIGNED(N-1 DOWNTO 0));
+  END COMPONENT;
+  
+  COMPONENT Mux2to1_8bit IS
+    PORT (x, y: IN SIGNED( 7 DOWNTO 0 );
+          s: IN STD_LOGIC;
+          m: OUT SIGNED( 7 DOWNTO 0 ));
+  END COMPONENT;
+  
+  COMPONENT Mux_2to1_10bit IS
+    PORT (x, y: IN STD_LOGIC_VECTOR( 9 DOWNTO 0 );
+          s: IN STD_LOGIC;
+          m: OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 ));
+  END COMPONENT;
+  
+  SIGNAL   EN_R_8bit, EN_C1, EN_C2: STD_LOGIC;   --Segnali di Enable dei contatori e registro a 8 bit
+  SIGNAL   CS_MEM_A, CS_MEM_B: STD_LOGIC;        --Segnali di Chip Selected delle memorie
+  SIGNAL   RD_WRn_MEM_A, RD_WRn_MEM_B: STD_LOGIC;--Segnali di lettura e scrittura memoria
+  SIGNAL   L_C2: STD_LOGIC;                      --Segnale di Load per caricare nel contatore 2 il valore
+                                                 --del conteggio del contatore 1
+  SIGNAL   RSTn_R_20bit: STD_LOGIC;              --Reset registro a 20 bit dove si salvano le somme parziali
+  SIGNAL   SUB_ADDn: STD_LOGIC;                  --Segnale per impostare il sommatore in addizione o sottrazione 
+  SIGNAL   XOR_13bit , XOR_2bit: STD_LOGIC;      --Segnali che gestiscono la saturazione
+  SIGNAL   MUX_Sel_Counters: STD_LOGIC;          --Segnale di selezione del multiplexer che fornisce l'indirizzo 
+                                                 --alla memoria A. 
+  SIGNAL   Sel_Mux_k_1: STD_LOGIC;               --Segnale di selezione del multiplexer che fornisce il valore da 
+                                                 --memorizzare al registro a 8 bit.
+       
+  SIGNAL MUX_Sel_adder : STD_LOGIC_VECTOR ( 1 DOWNTO 0 );    --Segnale di selezione del multiplexer che fornisce
+                                                             --al sommatore il dato corretto da aggiungere alla somma parziale
+  
+  SIGNAL Out_C1, Out_C2, Add_MEM_A : STD_LOGIC_VECTOR ( 9 DOWNTO 0 );    --Uscite dei contatori e segnale degli indirizzi della memoria A.
+  
+  SIGNAL Out_MEM_A, Out_R_8bit, Out_Mux_Saturation, Out_Mux_Signed_Sat, In_R_8bit : SIGNED ( 7 DOWNTO 0 );
+  --Dato in uscita dalla memoria A in lettura, uscita del registro a 8 bit, uscita del multiplexer nel circuito di
+  --saturazione,uscita del secondomultiplexer nel circuito di saturazione e ingresso del registro a 8 bit.
+  
+  SIGNAL Sum, Out_R_20bit : SIGNED ( 19 DOWNTO 0 );
+  --Segnale di uscita del sommatore e uscita del registro a 20 bit, che tiene memoria delle somme parziali.
+  
+  SIGNAL twoEk, fourEk, quarterEk, halfEk_1, Out_Mux_adder: SIGNED ( 9 DOWNTO 0 );
+  --I primi 4 dei segnali attraverso i quali si effettuano le operazioni di moltiplicazione e divisione
+  --per 2 e per 4.
+  
+  SIGNAL Out_Mux_adder_20bit: SIGNED ( 19 DOWNTO 0 );
+  --Uscita del multiplexer che regola un ingresso del sommatore.
+  
+  TYPE State_type IS (IDLE, WR_MEM_A, PROP_CONTR_0, PROP_CONTR_1, PROP_CONTR_2, INT_CONTR_0, INT_CONTR, DIFF_CONTR, WR_MEM_B, DONE, RD_MEM_B);
+  SIGNAL PRESENT_STATE, NEXT_STATE : State_type;
+  --Definizione degli stati della macchina attraverso un tipo di segnale Stare_type. Si definiscono inoltre il segnale di 
+  --stato corrente (PRESENT_STATE) e il segnale del prossimo stato (NEXT_STATE)
+  
+  BEGIN
+  
+  --Si richiamano i due contatori. Il primo definito in modo da incrementare il conto ad ogni colpo di clock e in modo da non utilizzare mai il segnale 
+  --di load. Questo infatti è utilizzato solo dal secondo che carica il conteggio del primo quando si calcola il contributo integrale. Lo stesso è stato
+  --infatti definito in modo da partire dal valore Out_C1 e da decrementare fino a 0.
+  Counter1 : counter PORT MAP ( Resetn => RSTn, Enable => EN_C1, Load => '0', U_Dn => '1', Clock => Clk, Data_in => "0000000000", count => Out_C1 );
+  Counter2 : counter PORT MAP ( Resetn => RSTn, Enable => EN_C2, Load => L_C2, U_Dn => '0', Clock => Clk, Data_in => Out_C1, count => Out_C2 );
+  
+  --Questo multiplexer regola il segnale dell'indirizzo della memoria A in modo da considerare il conteggio del Counter 2 quando si 
+  --vuole calcolare il contributo integrale.
+  Mux_Counters : Mux_2to1_10bit PORT MAP ( x => Out_C1, y => Out_C2, s => MUX_Sel_Counters, m => Add_MEM_A );
+  
+  --Memoria utilizzata per salvare i dati in ingresso corrispondenti agli errori da calcolare.
+  MEM_A : RAM1024x8 PORT MAP ( Address => Add_MEM_A, Data_in => Data_in, CS => CS_MEM_A , RD_WRn => RD_WRn_MEM_A, Clk => Clk, Data_out => Out_MEM_A );
+  
+  --Registro utilizzato per memorizzare il valore dell'errore del ciclo precedente in modo da poter calcolare il contributo derivato.
+  R_8bit : regn_8bit PORT MAP ( R => In_R_8bit, Clock => Clk, Resetn => RSTn, Enable => EN_R_8bit, Q => Out_R_8bit );
+  
+  --Il registro a 8 bit nel caso in cui ci si trovi al primo ciclo (Out_C1 ="0000000000") memorizza 0 al suo interno, per evitare che si sommi al registro
   --a 20 bit un vettore di 8 bit UNDEFINED.
   Mux_k_1 : Mux2to1_8bit PORT MAP ( x => "00000000", y => Out_MEM_A, s => Sel_Mux_k_1, m => In_R_8bit );
     
   --Il selettore del multiplexer sopracitato è un circuito combinatorio che fornisce in ingresso al registro a 8 bit un vettore di 8 zeri
   --nel caso in cui ci si trovi al primo ciclo (Out_C1 ="0000000000")
-	Sel_Mux_k_1 <= ( Out_C1(0) OR Out_C1(1) OR Out_C1(2) OR Out_C1(3) OR Out_C1(4) OR Out_C1(5) OR Out_C1(6) OR Out_C1(7) OR Out_C1(8) OR Out_C1(9));
-	
-	--Le 4 assegnazioni sottostanti eseguono le operazioni di moltiplicazione e divisione per 2 e 4 agendo sui bit (quindi sui "fili") del dato
-	--proveniente dalla memoria A. Fa eccezione il quarto segnale che proviene dal registro a 8 bit.
-	twoEk <= (Out_MEM_A(7) & Out_MEM_A & '0' );
-	fourEk<= ( Out_MEM_A & "00" );
-	quarterEk <= (Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7 DOWNTO 2) );
-	halfEk_1 <= ( Out_R_8bit(7) & Out_R_8bit(7) & Out_R_8bit(7)& Out_R_8bit(7 DOWNTO 1) );
-	
-	--Multiplexer che gestisce i dati da mandare al sommatore per aggiornare il valore nel registro a 20 bit.
-	Mux_adder : Mux_4to1_10bit PORT MAP ( x => twoEk, y => fourEk, u => quarterEk, v => halfEk_1, s => MUX_Sel_adder , m => Out_Mux_adder );
-	
-	--Il valore uscente dal multiplexer viene completato con altri 10 bit in modo da conse
-	Out_Mux_adder_20bit <= ( Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9)& Out_Mux_adder );
-	
-	add : sommatore PORT MAP ( X => Out_R_20bit, Y => Out_Mux_adder_20bit, S => Sum, SUB_ADDn => SUB_ADDn );
-	
-	R_20bit :regn_20bit PORT MAP ( R => Sum, Clock => Clk, Resetn => RSTn_R_20bit, Enable => '1', Q => Out_R_20bit );
-	
-	Mux_Saturation : Mux2to1_8bit PORT MAP ( x => Out_R_20bit( 7 DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
-	
-	--XOR_13bit <= (Out_R_20bit(19) XOR Out_R_20bit(18) XOR Out_R_20bit(17) XOR Out_R_20bit(16) XOR Out_R_20bit(15) XOR Out_R_20bit(14) XOR Out_R_20bit(13) XOR Out_R_20bit(12) XOR Out_R_20bit(11) XOR Out_R_20bit(10) XOR Out_R_20bit(9) XOR Out_R_20bit(8) Xor Out_R_20bit (7));
-	
-	XOR_13bit <= (Out_R_20bit(19) OR Out_R_20bit(18) OR Out_R_20bit(17) OR Out_R_20bit(16) OR Out_R_20bit(15) OR Out_R_20bit(14) OR Out_R_20bit(13) OR Out_R_20bit(12) OR Out_R_20bit(11) OR Out_R_20bit(10) OR Out_R_20bit(9) OR Out_R_20bit(8) or Out_R_20bit (7)) AND 
-	   (not (Out_R_20bit(19) AND Out_R_20bit(18) AND Out_R_20bit(17) AND Out_R_20bit(16) AND Out_R_20bit(15) AND Out_R_20bit(14) AND Out_R_20bit(13) AND Out_R_20bit(12) AND Out_R_20bit(11) AND Out_R_20bit(10) AND Out_R_20bit(9) AND Out_R_20bit(8) AND Out_R_20bit (7)));
-	
-	XOR_2bit <= XOR_13bit XOR  Out_R_20bit(19) ;
-	
-	Mux_Signed_Sat : Mux2to1_8bit PORT MAP ( x => "10000000", y =>"01111111", s => XOR_2bit, m => Out_Mux_Signed_Sat );
-	
-	MEM_B : RAM1024x8 PORT MAP ( Address => Out_C1, Data_in => Out_Mux_Saturation, CS => CS_MEM_B , RD_WRn => RD_WRn_MEM_B, Clk => Clk, Data_out => Out_MEM_B );
-	
-	
-	
-	
-			FSM_transitions: PROCESS ( Rstn, Clk )
-			
-				BEGIN
-					if RSTn = '0' then 
-					 PRESENT_STATE <= idle;
-					else
-						if clk'event and clk = '1' then -- flip - flop transition when rising edge occurs
-							PRESENT_STATE <= NEXT_STATE;
-						end if;
-					end if;
-				
-			END PROCESS ;
-			
-			next_state_evaluation: process(PRESENT_STATE, start, out_c1, out_c2)
-				BEGIN
-					
-					case PRESENT_STATE is
-					  when IDLE => if Start = '0' then
-											next_state <= IDLE;
-										else
-											next_state <= WR_MEM_A;
-										end if;
-					
-					  when WR_MEM_A => if  Out_C1 = "1111111111" then
-											next_state <= PROP_CONTR_0;
-										else
-											next_state <= WR_MEM_A;
-										end if;
-										
-					  when  PROP_CONTR_0 => next_state <= PROP_CONTR_1;
-					  
-					  when  PROP_CONTR_1 => next_state <= PROP_CONTR_2;
-					  
-					  when  PROP_CONTR_2 => if Out_C2 = "0000000000"  then
-					                        next_state <= INT_CONTR_0;
-					                        elsif Out_C2 = "1111111111" then
-					                          next_state <= INT_CONTR_0;
-					                          else
-														    next_state <= INT_CONTR;
-													     end if;
-													     
-													     
-						when  INT_CONTR_0 => next_state <= DIFF_CONTR;
-					  
-					  when  INT_CONTR => if Out_C2 = "0000000000" then
-					                        next_state <= INT_CONTR_0;
-					                        else
-														    next_state <= INT_CONTR;
-													     end if;
-																																								
-					  when  DIFF_CONTR => next_state <= WR_MEM_B ;
-					  
-					  when  WR_MEM_B=> if   Out_C1 = "1111111111" then
-														next_state <= RD_MEM_B;
-													else
-														next_state <= PROP_CONTR_0;
-													end if;
-													
-						when RD_MEM_B => if   Out_C1 = "1111111111" then
-														next_state <= DONE;
-													else
-														next_state <= RD_MEM_B;
-													end if;
-													
-					  WHEN DONE => if Start = '1' then
-											next_state <= DONE;
-										else
-											next_state <= IDLE;
-										end if;
-													
-					  WHEN OTHERS => NEXT_STATE <= IDLE;
-						
-					END CASE;
-					
-				END PROCESS ;
-				
-						
-			FSM_outputs : PROCESS ( PRESENT_STATE )
-			
-						BEGIN
-						
-							SUB_ADDn <= '0';
-							RSTn_R_20bit <= '1';
-							CS_MEM_B <= '0';
-							Done_sign <= '0';
-							EN_R_8bit <= '0';
-							EN_C2 <= '0';
-							MUX_Sel_Counters <= '0';
-							
-							CASE PRESENT_STATE IS
-							
-									WHEN IDLE => 
-											EN_C1 <= '0';
-											EN_C2 <= '0';
-											CS_MEM_A <= '0';
-											CS_MEM_B <= '0';
-											Done_sign <= '0';
-											EN_R_8bit <= '0';
-											
-									WHEN WR_MEM_A => 	
-											EN_C1 <= '1';
-											CS_MEM_A <= '1';
-											RD_WRn_MEM_A <= '0';
-											
-									WHEN PROP_CONTR_0 =>
-											EN_C1 <= '0';
-											L_C2 <= '1';
-											RD_WRn_MEM_A <= '1';
-											RSTn_R_20bit <= '0';
-											
-									WHEN PROP_CONTR_1 =>
-											L_C2 <= '0';
-											SUB_ADDn <= '0';
-											MUX_Sel_adder <= "01";
-											
-									WHEN PROP_CONTR_2 =>
-											MUX_Sel_adder <= "10";
-											EN_C2 <= '1';
-											
-									WHEN INT_CONTR_0 =>
-									    EN_C2 <= '0';
-									    MUX_Sel_Counters <= '1';
-									    MUX_Sel_adder <= "00";
-									    
-									WHEN INT_CONTR =>
-									    EN_C2 <= '1';
-											MUX_Sel_Counters <= '1';
-											MUX_Sel_adder <= "00";
-											
-									WHEN DIFF_CONTR =>
-									  	 EN_R_8bit <= '1';
-											MUX_Sel_adder <= "11";
-											SUB_ADDn <= '1';
-											
-									WHEN WR_MEM_B => 
-											CS_MEM_B <= '1';
-											RD_WRn_MEM_B <= '0';
-											EN_C1 <= '1';
-											
-									WHEN RD_MEM_B =>
-									    CS_MEM_B <= '1';
-											RD_WRn_MEM_B <= '1';
-											EN_C1 <= '1';
-											
-									WHEN DONE =>
-											Done_sign <= '1';
-											EN_C1 <= '0';
-									    EN_C2 <= '0';
-									    EN_R_8bit <= '0';
-									    CS_MEM_A <= '0';
-									    CS_MEM_B <= '0';
-									    RSTn_R_20bit <= '0';									    
-									    
-									WHEN OTHERS => 
-											EN_C1 <= '0';
-											EN_C2 <= '0';
-											CS_MEM_A <= '0';
-											CS_MEM_B <= '0';
-											Done_sign <= '0';
-											EN_R_8bit <= '0';
-											
-							END CASE;
-							
-					END PROCESS;
-					
+  Sel_Mux_k_1 <= ( Out_C1(0) OR Out_C1(1) OR Out_C1(2) OR Out_C1(3) OR Out_C1(4) OR Out_C1(5) OR Out_C1(6) OR Out_C1(7) OR Out_C1(8) OR Out_C1(9));
+  
+  --Le 4 assegnazioni sottostanti eseguono le operazioni di moltiplicazione e divisione per 2 e 4 agendo sui bit (quindi sui "fili") del dato
+  --proveniente dalla memoria A. Fa eccezione il quarto segnale che proviene dal registro a 8 bit.
+  twoEk <= (Out_MEM_A(7) & Out_MEM_A & '0' );
+  fourEk<= ( Out_MEM_A & "00" );
+  quarterEk <= (Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7) & Out_MEM_A(7 DOWNTO 2) );
+  halfEk_1 <= ( Out_R_8bit(7) & Out_R_8bit(7) & Out_R_8bit(7)& Out_R_8bit(7 DOWNTO 1) );
+  
+  --Multiplexer che gestisce i dati da mandare al sommatore per aggiornare il valore nel registro a 20 bit.
+  Mux_adder : Mux_4to1_10bit PORT MAP ( x => twoEk, y => fourEk, u => quarterEk, v => halfEk_1, s => MUX_Sel_adder , m => Out_Mux_adder );
+  
+  --Il valore uscente dal multiplexer viene completato con altri 10 bit in modo da consentire la somma tra due segnali dello stesso numero di bit (il registro è da 20 bit, 
+  --mentre l'uscita del multiplexer è da 10). Si aggiunge quindi il decimo bit per 10 volte, in quanto "bit di segno".
+  Out_Mux_adder_20bit <= ( Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9) & Out_Mux_adder(9)& Out_Mux_adder );
+  
+  --Sommetore in grado di eseguire sia somma che differenza
+  add : sommatore PORT MAP ( X => Out_R_20bit, Y => Out_Mux_adder_20bit, S => Sum, SUB_ADDn => SUB_ADDn );
+  
+  --Registro da 20 bit che, durante l'lelaborazone dell'errore, memorizza la somma parziale ad ogni colpo di clock. Viene poi messo in reazione sul sommatore.
+  R_20bit :regn_20bit PORT MAP ( R => Sum, Clock => Clk, Resetn => RSTn_R_20bit, Enable => '1', Q => Out_R_20bit );
+  
+  --Multiplexer che regola i controllo sulla saturazione. Quando XOR_13bit restituisce 1 il multiplexer fornisce in uscita il valore saturo, positivo o negativo, fornito dal Mux_Signed_Sat
+  Mux_Saturation : Mux2to1_8bit PORT MAP ( x => Out_R_20bit( 7 DOWNTO 0 ), y => Out_Mux_Signed_Sat , s => XOR_13bit, m => Out_Mux_Saturation );
+  
+  --In realtà non è un Xor 13 bit, ma una serie di OR e AND che restituiscono 1 se si è superato il valore 127 o se si è al di sotto di -128. La distinzione tra valore accettabile e saturazione
+  --viene ottenuta in quanto se non si ha saturazione gli ultimi 13 bit dei 20 in uscita dal registro sono tutti uguali (o tutti 1 o tutti 0). In questo caso il circuito combinatorio restituisce
+  --0, 1 altrimenti.
+  XOR_13bit <= (Out_R_20bit(19) OR Out_R_20bit(18) OR Out_R_20bit(17) OR Out_R_20bit(16) OR Out_R_20bit(15) OR Out_R_20bit(14) OR Out_R_20bit(13) OR Out_R_20bit(12) OR Out_R_20bit(11) OR Out_R_20bit(10) OR Out_R_20bit(9) OR Out_R_20bit(8) or Out_R_20bit (7)) AND 
+     (not (Out_R_20bit(19) AND Out_R_20bit(18) AND Out_R_20bit(17) AND Out_R_20bit(16) AND Out_R_20bit(15) AND Out_R_20bit(14) AND Out_R_20bit(13) AND Out_R_20bit(12) AND Out_R_20bit(11) AND Out_R_20bit(10) AND Out_R_20bit(9) AND Out_R_20bit(8) AND Out_R_20bit (7)));
+  
+  --L'Xor a 2 bit prende l'uscita dell'Xor a 13 bit lo confronta con il bit di segno dal registro e regola il multiplexer sottostante.
+  XOR_2bit <= XOR_13bit XOR  Out_R_20bit(19) ;
+  
+  --Ha come segnale di selezione l'Xor a 2 bit, fornendo il valore di saturazione positivo o negativo. Sta poi al Mux_Saturation se fornire oppure no questo valore alla memoria B
+  Mux_Signed_Sat : Mux2to1_8bit PORT MAP ( x => "10000000", y =>"01111111", s => XOR_2bit, m => Out_Mux_Signed_Sat );
+  
+  --Memoria utilizzata per salvare i dati eleborati dalla macchina. Il segnale di RD in realtà non viene mai usato nell'elaborazione, solo durante la scrittura su file passa a 1.
+  --L'indirizzo considerato è l'uscita del contatore 1 e il valore salvato è sempre quello in uscita dal Mux_Saturation.
+  MEM_B : RAM1024x8 PORT MAP ( Address => Out_C1, Data_in => Out_Mux_Saturation, CS => CS_MEM_B , RD_WRn => RD_WRn_MEM_B, Clk => Clk, Data_out => Out_MEM_B );
+  
+  
+  
+  
+      FSM_transitions: PROCESS ( Rstn, Clk )
+      
+        BEGIN
+          if RSTn = '0' then 
+           PRESENT_STATE <= idle; --Se il reset è basso la macchina si mantiene nello stato di IDLE
+          else
+            if clk'event and clk = '1' then --Quando il reset viene disattivato ad ogni colpo di clock la macchina cambia il suo stato
+              PRESENT_STATE <= NEXT_STATE;
+            end if;
+          end if;
+        
+      END PROCESS ;
+      
+      next_state_evaluation: process(PRESENT_STATE, start, out_c1, out_c2)
+        BEGIN
+          
+          case PRESENT_STATE is
+            when IDLE => if Start = '0' then        --La macchina attende il segnale di Start per iniziare l'eleborazione
+                      next_state <= IDLE;
+                    else
+                      next_state <= WR_MEM_A;
+                    end if;
+          
+            when WR_MEM_A => if  Out_C1 = "1111111111" then     --La macchina inizia l'elaborazione dell'errore sono una volta
+                      next_state <= PROP_CONTR_0;               --ultimata la scrittura della memoria A
+                    else
+                      next_state <= WR_MEM_A;
+                    end if;
+                    
+            when  PROP_CONTR_0 => next_state <= PROP_CONTR_1;   
+            
+            when  PROP_CONTR_1 => next_state <= PROP_CONTR_2;
+            
+            when  PROP_CONTR_2 => if Out_C2 = "0000000000"  then    --Se ci si trova all'ultimo contributo integrale la macchina passa allo stato 
+                                  next_state <= INT_CONTR_0;        --INT_CONTR_0 altrimenti si devono valutare più contributi ,
+                                  elsif Out_C2 = "1111111111" then  -- perciò passa a INT_CONTR "generico".
+                                    next_state <= INT_CONTR_0;      --La condizione "elsif Out_C2 = "1111111111" then" è stata aggiunta
+                                    else                            --per un anomalia dell'algoritmo che non si è riusciti a risolvere.
+                                next_state <= INT_CONTR;
+                               end if;
+                               
+                               
+            when  INT_CONTR_0 => next_state <= DIFF_CONTR;      --Si passa a considerare il contributo differenziale
+            
+            when  INT_CONTR => if Out_C2 = "0000000000" then    --Una volta che manca considerare l'ultimo contributo integrale la 
+                                  next_state <= INT_CONTR_0;    --macchina passa a INT_CONTR_0, altrimenti a INT_CONTR "generico"
+                                  else
+                                next_state <= INT_CONTR;
+                               end if;
+                                                                                
+            when  DIFF_CONTR => next_state <= WR_MEM_B ;    --Finita l'elaborazione si scrive il risultato sulla memoria B
+                                                            --La saturazione viene controllata automaticamente
+            
+            when  WR_MEM_B=> if   Out_C1 = "1111111111" then    --Se la macchina ha elaborato tutti gli errori passiamo alla scrittura su file
+                            next_state <= RD_MEM_B;             --altrimenti si valuta il prossimo errore riniziando il ciclo.
+                          else
+                            next_state <= PROP_CONTR_0;
+                          end if;
+                          
+            when RD_MEM_B => if   Out_C1 = "1111111111" then    --Se la macchina ha fornito in uscita tutti i 1024 risultati ottenuti passa a DONE
+                            next_state <= DONE;                 --altrimenti fornisce il risultato successivo
+                          else
+                            next_state <= RD_MEM_B;
+                          end if;
+                          
+            WHEN DONE => if Start = '1' then                  --Nello stato di DONE la macchina attende che il segnale di Start torni a zero.
+                      next_state <= DONE;                      --Se ciò accade si torna in IDLE, altrimenti si aspetta ancora rimanendo in DONE
+                    else
+                      next_state <= IDLE;
+                    end if;
+                          
+            WHEN OTHERS => NEXT_STATE <= IDLE;          --In tutti gli altri casi non sopra definiti si torna in IDLE
+            
+          END CASE;
+          
+        END PROCESS ;
+        
+            
+      FSM_outputs : PROCESS ( PRESENT_STATE )
+      
+            BEGIN
+            
+              SUB_ADDn <= '0';        --Segnali di default specificati precedentemente agli stati 
+              RSTn_R_20bit <= '1';
+              CS_MEM_B <= '0';
+              Done_sign <= '0';
+              EN_R_8bit <= '0';
+              EN_C2 <= '0';
+              MUX_Sel_Counters <= '0';
+              
+              CASE PRESENT_STATE IS
+              
+                  WHEN IDLE =>          --In IDLE la macchina rimane in attesa disabilitando contatori, memorie 
+                      EN_C1 <= '0';     --registro a 8 bit e mantenendo Done_sign a 0.
+                      EN_C2 <= '0';
+                      CS_MEM_A <= '0';
+                      CS_MEM_B <= '0';
+                      Done_sign <= '0';
+                      EN_R_8bit <= '0';
+                      
+                  WHEN WR_MEM_A => 	        --Si abilita il contatore uno, in modo da incrementare il conteggio
+                      EN_C1 <= '1';         --a ogni colpo di clock. Si abilita MEM_A e si imposta la funzione di
+                      CS_MEM_A <= '1';      --scrittura
+                      RD_WRn_MEM_A <= '0';
+                      
+                  WHEN PROP_CONTR_0 =>        --Si inizia l'elaborazione mantenendo il conteggio al valore corrente
+                      EN_C1 <= '0';           --per tutto il ciclo, si carica in C2 tale conteggio, si legge il valore 
+                      L_C2 <= '1';            --nella memoria all'indirizzo Out_C1 e si resetta il registro a 20 bit
+                      RD_WRn_MEM_A <= '1';    --in modo iniziare le somme da zero
+                      RSTn_R_20bit <= '0';
+                      
+                  WHEN PROP_CONTR_1 =>      --Si setta il L_C2 a 0 in quanto il valore è stato già caricato allo stato precedente
+                      L_C2 <= '0';          --si imposta il sommatore in addizione e si seleziona il dato da aggiungere al registro
+                      SUB_ADDn <= '0';      --ovvero il valore proveniente dalla memoria moltiplicato per 4
+                      MUX_Sel_adder <= "01";
+                      
+                  WHEN PROP_CONTR_2 =>          --Si aggiunge al registro il valore della memoria moltiplicato per 1/4 facendo 
+                      MUX_Sel_adder <= "10";    --commutare il selettore nel modo giusto
+                      EN_C2 <= '1';             --Si attiva inoltre il contatore 2 poichè il decremento avviene effettivamente solo al
+                                                --colpo di clock successivo. Questo perchè "EN_C2" passa a 1 con un certo ritardo e perchè
+                                                --il contatore campiona il segnale solo sul fronte di clock, quindi il successivo
+                 
+                  WHEN INT_CONTR_0 =>           --Se il contributo integrale da considerare è l'ultimo si disabilita il contatore.
+                      EN_C2 <= '0';             --Il contatore che fornisce l'indirizzo alla memoria torna ad essere il primo
+                      MUX_Sel_Counters <= '1';  --Si seleziona il primo ingresso sul multiplexer che regola l'ingresso al sommatore
+                      MUX_Sel_adder <= "00";    --per considerare l'uscita della memoria moltiplicato per 2(contributo integrale)
+                      
+                  WHEN INT_CONTR =>             --I segnali utilizzati sono quelli dello stato precedente solo che in questo il contatore due risulta abilitato
+                      EN_C2 <= '1';             -- per decrementare il conteggio al colpo di clock successivo
+                      MUX_Sel_Counters <= '1';
+                      MUX_Sel_adder <= "00";
+                      
+                  WHEN DIFF_CONTR =>            --Si abilita il registro a 8 bit in modo che al successivo colpo di clock il valore al suo interno venga 
+                       EN_R_8bit <= '1';        --aggiornato. Si seleziona l'ultimo ingresso sul multiplexer che regola l'ingresso al sommatore in modo
+                      MUX_Sel_adder <= "11";    --che al registro a 20 bit venga sottratto il valore contenuto nel registro a 8 bit diviso per 2. Questo accade
+                      SUB_ADDn <= '1';          --impostando il sommatore in sottrazione (SUB_ADD=1)
+                      
+                  WHEN WR_MEM_B =>              --Una volta effettuato il controllo sulla saturazione automaticamente il valore ottenuto nell'elaborazione dell'errore
+                      CS_MEM_B <= '1';          --vine scritto nella memoria B, abilitando quest'ultima con CS_MEM_B, impostandola in scrittura con RD_WRn_MEM_B = 0.
+                      RD_WRn_MEM_B <= '0';      --Si abilita il contatore 1 in modo che al successivo colpo di clock il conteggio venga aggiornato.
+                      EN_C1 <= '1';
+                      
+                  WHEN RD_MEM_B =>              --Si forniscono i dati in uscita dalla memoria B con gli stessi segnali dello stato precedente ad eccezione del
+                      CS_MEM_B <= '1';          --RD_WRn_MEM_B cge passa a 1 impostando la memoria in lettura
+                      RD_WRn_MEM_B <= '1';
+                      EN_C1 <= '1';
+                      
+                  WHEN DONE =>                  --Nello stato di Done sostanzialmente si hanno i segnali dello stato di IDLE con l'unica eccezione del Done_sign
+                      Done_sign <= '1';         --che passa a 1.
+                      EN_C1 <= '0';
+                      EN_C2 <= '0';
+                      EN_R_8bit <= '0';
+                      CS_MEM_A <= '0';
+                      CS_MEM_B <= '0';
+                      RSTn_R_20bit <= '0';									    
+                      
+                  WHEN OTHERS => 
+                      EN_C1 <= '0';
+                      EN_C2 <= '0';
+                      CS_MEM_A <= '0';
+                      CS_MEM_B <= '0';
+                      Done_sign <= '0';
+                      EN_R_8bit <= '0';
+                      
+              END CASE;
+              
+          END PROCESS;
+          
 END Structure;
+											
+				
+				
+			
 											
 				
 				
